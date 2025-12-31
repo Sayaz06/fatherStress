@@ -1,9 +1,9 @@
 const CACHE_NAME = "fatherstress-cache-v4";
 const ASSETS = [
-  "/",
-  "/index.html",
-  "/manifest.json",
-  "/firebase-config.js"
+  "/fatherStress/",
+  "/fatherStress/index.html",
+  "/fatherStress/manifest.json",
+  "/fatherStress/firebase-config.js"
 ];
 
 self.addEventListener("install", (e) => {
