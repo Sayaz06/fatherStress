@@ -78,29 +78,45 @@
         default:return renderHome();
       }}
 
-    // ====== Login Page ======
-    async function renderLogin(){
-      const card = el("div",{className:"card center-col"});
+// ====== Login Page (Anonymous + Google) ======
+async function renderLogin(){
+  const card = el("div",{className:"card center-col"});
 
-      const header = el("div",{className:"card-header"});
-      header.appendChild(el("div",{className:"card-title",text:"FatherStress"}));
-      header.appendChild(el("div",{className:"card-subtitle",text:"Sign in to continue"}));
-      card.appendChild(header);
-      card.appendChild(el("div",{className:"divider"}));
+  const header = el("div",{className:"card-header"});
+  header.appendChild(el("div",{className:"card-title",text:"FatherStress"}));
+  header.appendChild(el("div",{className:"card-subtitle",text:"Sign in to continue"}));
+  card.appendChild(header);
+  card.appendChild(el("div",{className:"divider"}));
 
-      const btnAnon = el("button",{className:"btn btn-full btn-pill",text:"Masuk (Anonymous)"});
-      btnAnon.addEventListener("click",async()=>{
-        await firebase.auth().signInAnonymously();
-        firebase.auth().onAuthStateChanged(u=>{
-          APP_STATE.user = u;
-          setRoute("home");
-        });
-      });
-      card.appendChild(btnAnon);
+  // Anonymous Login
+  const btnAnon = el("button",{className:"btn btn-full btn-pill",text:"Masuk (Anonymous)"});
+  btnAnon.addEventListener("click",async()=>{
+    await firebase.auth().signInAnonymously();
+    firebase.auth().onAuthStateChanged(u=>{
+      APP_STATE.user = u;
+      setRoute("home");
+    });
+  });
+  card.appendChild(btnAnon);
 
-      spaRoot.innerHTML = "";
-      spaRoot.appendChild(card);
+  // Google Login
+  const btnGoogle = el("button",{className:"btn btn-full btn-pill mt-2",text:"Login dengan Google"});
+  btnGoogle.addEventListener("click",async()=>{
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+      const result = await firebase.auth().signInWithPopup(provider);
+      APP_STATE.user = result.user;
+      setRoute("home");
+    } catch (err) {
+      alert("Gagal login dengan Google: " + err.message);
     }
+  });
+  card.appendChild(btnGoogle);
+
+  spaRoot.innerHTML = "";
+  spaRoot.appendChild(card);
+}
+
 
     // ====== Home Page ======
     function renderHome(){
