@@ -50,7 +50,13 @@
 
   <script>
     const spaRoot=document.getElementById("app");
-    const APP_STATE={route:"login",user:null,fatherStress:{topicId:null,folderId:null,codeId:null,bundleId:null}};
+// Cuba ambil data tersimpan, jika tiada baru guna default
+    const savedState = JSON.parse(localStorage.getItem("fs_state"));
+    const APP_STATE = savedState || {
+      route: "home", 
+      user: null, 
+      fatherStress: { topicId: null, folderId: null, codeId: null, bundleId: null }
+    };
     const db=firebase.firestore();
 
     function el(tag,opts={}){const n=document.createElement(tag);
@@ -66,17 +72,13 @@
     function fsCodesCol(tid,fid){return fsFoldersCol(tid).doc(fid).collection("codes");}
     function fsBundlesCol(tid,fid,cid){return fsCodesCol(tid,fid).doc(cid).collection("bundles");}
 
-    function setRoute(r){APP_STATE.route=r;render();}
-    function render(){if(!APP_STATE.user) return renderLogin();
-      switch(APP_STATE.route){
-        case "home":return renderHome();
-        case "fsRoot":return renderFsRoot();
-        case "fsFolders":return renderFsFolders();
-        case "fsCodes":return renderFsCodes();
-        case "fsBundles":return renderFsBundles();
-        case "fsBundleDetail":return renderFsBundleDetail();
-        default:return renderHome();
-      }}
+function setRoute(r) {
+  APP_STATE.route = r;
+  // Simpan state terkini (kecuali info user yang sensitif)
+  const stateToSave = { ...APP_STATE, user: null };
+  localStorage.setItem("fs_state", JSON.stringify(stateToSave));
+  render();
+}
 
 // ====== Login Page (Anonymous + Google) ======
 async function renderLogin(){
@@ -91,11 +93,12 @@ async function renderLogin(){
   // Anonymous Login
   const btnAnon = el("button",{className:"btn btn-full btn-pill",text:"Masuk (Anonymous)"});
   btnAnon.addEventListener("click",async()=>{
-    await firebase.auth().signInAnonymously();
-    firebase.auth().onAuthStateChanged(u=>{
-      APP_STATE.user = u;
-      setRoute("home");
-    });
+    try {
+      await firebase.auth().signInAnonymously();
+      // Tak perlu panggil setRoute di sini, Boot listener akan buatkan
+    } catch (err) {
+      alert("Gagal login: " + err.message);
+    }
   });
   card.appendChild(btnAnon);
 
@@ -104,9 +107,8 @@ async function renderLogin(){
   btnGoogle.addEventListener("click",async()=>{
     const provider = new firebase.auth.GoogleAuthProvider();
     try {
-      const result = await firebase.auth().signInWithPopup(provider);
-      APP_STATE.user = result.user;
-      setRoute("home");
+      await firebase.auth().signInWithPopup(provider);
+      // Tak perlu panggil setRoute di sini, Boot listener akan buatkan
     } catch (err) {
       alert("Gagal login dengan Google: " + err.message);
     }
@@ -118,18 +120,43 @@ async function renderLogin(){
 }
 
 
-    // ====== Home Page ======
+// ====== Home Page ======
     function renderHome(){
       const card = el("div",{className:"card"});
 
       const header = el("div",{className:"card-header"});
       header.appendChild(el("div",{className:"card-title",text:"Pilihan Utama"}));
-      header.appendChild(el("div",{className:"card-subtitle",text:"Pilih modul FatherStress"}));
+      
+      // Tambah butang Logout di header
+// Cari bahagian ini dalam renderHome()
+const btnLogout = el("button", {
+  className: "btn btn-xs", 
+  text: "Logout",
+  on: {
+    click: async () => {
+      if(confirm("Log keluar?")) {
+        // 1. Log keluar dari Firebase
+        await firebase.auth().signOut();
+        
+        // 2. Padam memori state yang disimpan dalam browser (PENTING!)
+        localStorage.removeItem("fs_state"); 
+        
+        // 3. Reset user dalam aplikasi
+        APP_STATE.user = null;
+        
+        // 4. Kembali ke skrin login
+        setRoute("login");
+      }
+    }
+  }
+});
+      btnLogout.style.color = "#fecaca";
+      header.appendChild(btnLogout);
+
       card.appendChild(header);
       card.appendChild(el("div",{className:"divider"}));
 
       const section = el("div",{className:"section"});
-
       const btnFs = el("button",{className:"btn btn-full btn-pill",text:"FatherStress Modul"});
       btnFs.addEventListener("click",()=>setRoute("fsRoot"));
 
@@ -139,6 +166,7 @@ async function renderLogin(){
       spaRoot.innerHTML = "";
       spaRoot.appendChild(card);
     }
+
 
     // ====== Root Page FatherStress ======
     async function renderFsRoot(){
@@ -582,8 +610,17 @@ async function renderLogin(){
       [ideaInput,sourceInput,whenInput,noteInput].forEach(inp=>inp.addEventListener("input",scheduleSave));
     }
 
-    // ====== Boot ======
-    render();
+// ====== Boot ======
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        APP_STATE.user = user;
+        // Jika user dah login, terus paparkan route terakhir yang disimpan
+        render(); 
+      } else {
+        APP_STATE.user = null;
+        renderLogin();
+      }
+    });
   </script>
 
   <!-- Service worker register -->
