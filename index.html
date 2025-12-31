@@ -50,13 +50,7 @@
 
   <script>
     const spaRoot=document.getElementById("app");
-// Cuba ambil data tersimpan, jika tiada baru guna default
-    const savedState = JSON.parse(localStorage.getItem("fs_state"));
-    const APP_STATE = savedState || {
-      route: "home", 
-      user: null, 
-      fatherStress: { topicId: null, folderId: null, codeId: null, bundleId: null }
-    };
+    const APP_STATE={route:"login",user:null,fatherStress:{topicId:null,folderId:null,codeId:null,bundleId:null}};
     const db=firebase.firestore();
 
     function el(tag,opts={}){const n=document.createElement(tag);
@@ -72,13 +66,17 @@
     function fsCodesCol(tid,fid){return fsFoldersCol(tid).doc(fid).collection("codes");}
     function fsBundlesCol(tid,fid,cid){return fsCodesCol(tid,fid).doc(cid).collection("bundles");}
 
-function setRoute(r) {
-  APP_STATE.route = r;
-  // Simpan state terkini (kecuali info user yang sensitif)
-  const stateToSave = { ...APP_STATE, user: null };
-  localStorage.setItem("fs_state", JSON.stringify(stateToSave));
-  render();
-}
+    function setRoute(r){APP_STATE.route=r;render();}
+    function render(){if(!APP_STATE.user) return renderLogin();
+      switch(APP_STATE.route){
+        case "home":return renderHome();
+        case "fsRoot":return renderFsRoot();
+        case "fsFolders":return renderFsFolders();
+        case "fsCodes":return renderFsCodes();
+        case "fsBundles":return renderFsBundles();
+        case "fsBundleDetail":return renderFsBundleDetail();
+        default:return renderHome();
+      }}
 
 // ====== Login Page (Anonymous + Google) ======
 async function renderLogin(){
@@ -93,12 +91,11 @@ async function renderLogin(){
   // Anonymous Login
   const btnAnon = el("button",{className:"btn btn-full btn-pill",text:"Masuk (Anonymous)"});
   btnAnon.addEventListener("click",async()=>{
-    try {
-      await firebase.auth().signInAnonymously();
-      // Tak perlu panggil setRoute di sini, Boot listener akan buatkan
-    } catch (err) {
-      alert("Gagal login: " + err.message);
-    }
+    await firebase.auth().signInAnonymously();
+    firebase.auth().onAuthStateChanged(u=>{
+      APP_STATE.user = u;
+      setRoute("home");
+    });
   });
   card.appendChild(btnAnon);
 
@@ -107,8 +104,9 @@ async function renderLogin(){
   btnGoogle.addEventListener("click",async()=>{
     const provider = new firebase.auth.GoogleAuthProvider();
     try {
-      await firebase.auth().signInWithPopup(provider);
-      // Tak perlu panggil setRoute di sini, Boot listener akan buatkan
+      const result = await firebase.auth().signInWithPopup(provider);
+      APP_STATE.user = result.user;
+      setRoute("home");
     } catch (err) {
       alert("Gagal login dengan Google: " + err.message);
     }
@@ -128,28 +126,19 @@ async function renderLogin(){
       header.appendChild(el("div",{className:"card-title",text:"Pilihan Utama"}));
       
       // Tambah butang Logout di header
-// Cari bahagian ini dalam renderHome()
-const btnLogout = el("button", {
-  className: "btn btn-xs", 
-  text: "Logout",
-  on: {
-    click: async () => {
-      if(confirm("Log keluar?")) {
-        // 1. Log keluar dari Firebase
-        await firebase.auth().signOut();
-        
-        // 2. Padam memori state yang disimpan dalam browser (PENTING!)
-        localStorage.removeItem("fs_state"); 
-        
-        // 3. Reset user dalam aplikasi
-        APP_STATE.user = null;
-        
-        // 4. Kembali ke skrin login
-        setRoute("login");
-      }
-    }
-  }
-});
+      const btnLogout = el("button", {
+        className: "btn btn-xs", 
+        text: "Logout",
+        on: {
+          click: async () => {
+            if(confirm("Log keluar?")) {
+              await firebase.auth().signOut();
+              APP_STATE.user = null;
+              setRoute("login");
+            }
+          }
+        }
+      });
       btnLogout.style.color = "#fecaca";
       header.appendChild(btnLogout);
 
@@ -610,13 +599,17 @@ const btnLogout = el("button", {
       [ideaInput,sourceInput,whenInput,noteInput].forEach(inp=>inp.addEventListener("input",scheduleSave));
     }
 
-// ====== Boot ======
+ // ====== Boot ======
+    // Jangan terus panggil render(), tapi dengar perubahan status auth
     firebase.auth().onAuthStateChanged((user) => {
       if (user) {
+        // Jika pengguna sudah login, simpan info user dan terus ke home
         APP_STATE.user = user;
-        // Jika user dah login, terus paparkan route terakhir yang disimpan
-        render(); 
+        // Jika anda mahu kekal di route sedia ada (contoh: sedang edit bundle), 
+        // anda boleh buat logik lebih kompleks, tapi buat masa ni kita hantar ke home.
+        if(APP_STATE.route === "login") setRoute("home");
       } else {
+        // Jika tiada user, hantar ke login
         APP_STATE.user = null;
         renderLogin();
       }
