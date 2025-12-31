@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#111827" />
+  <link rel="manifest" href="manifest.json" />
+  <title>FatherStress</title>
+  <style>
+    :root {
+      --bg: #0b0f17; --card: #121826; --text: #e5e7eb;
+      --muted: #9ca3af; --primary: #38bdf8; --danger: #fecaca; --border: #1f2937;
+    }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto; background:var(--bg); color:var(--text); }
+    .container { max-width:860px; margin:0 auto; padding:16px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
+    .center-col { display:flex; flex-direction:column; align-items:center; }
+    .card-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .card-title { font-weight:700; font-size:18px; }
+    .card-subtitle { font-size:12px; color:var(--muted); }
+    .divider { height:1px; background:var(--border); margin:12px 0; }
+    .section { display:grid; gap:8px; }
+    .section-note { font-size:12px; color:var(--muted); }
+    .section-title { font-weight:600; font-size:13px; margin-top:6px; }
+    .list-item { border:1px solid var(--border); border-radius:10px; padding:10px; margin-bottom:8px; }
+    .list-item-header { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .list-item-title { font-weight:600; }
+    .list-item-actions { display:flex; gap:6px; }
+    .list-item-meta { font-size:12px; color:var(--muted); margin-top:4px; }
+    .scroll-y { overflow-y:auto; }
+    .btn { border:1px solid var(--border); background:transparent; color:var(--text); padding:8px 12px; border-radius:8px; cursor:pointer; }
+    .btn:hover { border-color:var(--primary); color:var(--primary); }
+    .btn-full { width:100%; } .btn-pill { border-radius:999px; }
+    .btn-ghost { background:transparent; } .btn-sm { padding:6px 10px; font-size:12px; }
+    .btn-xs { padding:2px 6px; font-size:10px; }
+    input, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:#0f1523; color:var(--text); }
+    textarea { min-height:120px; }
+    .error-banner { background:#1d2433; border:1px solid #ef4444; color:#fecaca; padding:10px; border-radius:8px; }
+    .mt-2 { margin-top:8px; } .mt-3 { margin-top:12px; }
+  </style>
+</head>
+<body>
+  <div id="app" class="container"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+
+  <script>
+    const spaRoot=document.getElementById("app");
+    const APP_STATE={route:"login",user:null,fatherStress:{topicId:null,folderId:null,codeId:null,bundleId:null}};
+    const db=firebase.firestore();
+
+    function el(tag,opts={}){const n=document.createElement(tag);
+      if(opts.className) n.className=opts.className;
+      if(opts.text) n.textContent=opts.text;
+      if(opts.attrs) Object.entries(opts.attrs).forEach(([k,v])=>n.setAttribute(k,v));
+      if(opts.on) Object.entries(opts.on).forEach(([k,fn])=>n.addEventListener(k,fn));
+      return n;}
+
+    function userDoc(){return db.collection("users").doc(APP_STATE.user.uid);}
+    function fsTopicsCol(){return userDoc().collection("fatherstress_topics");}
+    function fsFoldersCol(tid){return fsTopicsCol().doc(tid).collection("folders");}
+    function fsCodesCol(tid,fid){return fsFoldersCol(tid).doc(fid).collection("codes");}
+    function fsBundlesCol(tid,fid,cid){return fsCodesCol(tid,fid).doc(cid).collection("bundles");}
+
+    function setRoute(r){APP_STATE.route=r;render();}
+    function render(){if(!APP_STATE.user) return renderLogin();
+      switch(APP_STATE.route){
+        case "home":return renderHome();
+        case "fsRoot":return renderFsRoot();
+        case "fsFolders":return renderFsFolders();
+        case "fsCodes":return renderFsCodes();
+        case "fsBundles":return renderFsBundles();
+        case "fsBundleDetail":return renderFsBundleDetail();
+        default:return renderHome();
+      }}
+
+    // ====== Login Page ======
+    async function renderLogin(){
+      const card = el("div",{className:"card center-col"});
+
+      const header = el("div",{className:"card-header"});
+      header.appendChild(el("div",{className:"card-title",text:"FatherStress"}));
+      header.appendChild(el("div",{className:"card-subtitle",text:"Sign in to continue"}));
+      card.appendChild(header);
+      card.appendChild(el("div",{className:"divider"}));
+
+      const btnAnon = el("button",{className:"btn btn-full btn-pill",text:"Masuk (Anonymous)"});
+      btnAnon.addEventListener("click",async()=>{
+        await firebase.auth().signInAnonymously();
+        firebase.auth().onAuthStateChanged(u=>{
+          APP_STATE.user = u;
+          setRoute("home");
+        });
+      });
+      card.appendChild(btnAnon);
+
+      spaRoot.innerHTML = "";
+      spaRoot.appendChild(card);
+    }
+
+    // ====== Home Page ======
+    function renderHome(){
+      const card = el("div",{className:"card"});
+
+      const header = el("div",{className:"card-header"});
+      header.appendChild(el("div",{className:"card-title",text:"Pilihan Utama"}));
+      header.appendChild(el("div",{className:"card-subtitle",text:"Pilih modul FatherStress"}));
+      card.appendChild(header);
+      card.appendChild(el("div",{className:"divider"}));
+
+      const section = el("div",{className:"section"});
+
+      const btnFs = el("button",{className:"btn btn-full btn-pill",text:"FatherStress Modul"});
+      btnFs.addEventListener("click",()=>setRoute("fsRoot"));
+
+      section.appendChild(btnFs);
+      card.appendChild(section);
+
+      spaRoot.innerHTML = "";
+      spaRoot.appendChild(card);
+    }
+
+    // ====== Root Page FatherStress ======
+    async function renderFsRoot(){
+      const card = el("div",{className:"card"});
+
+      const header = el("div",{className:"card-header"});
+      header.appendChild(el("div",{className:"card-title",text:"FatherStress"}));
+      header.appendChild(el("div",{className:"card-subtitle",text:"Catat idea baharu"}));
+      card.appendChild(header);
+      card.appendChild(el("div",{className:"divider"}));
+
+      const searchInput = el("input",{attrs:{type:"search",placeholder:"Cari Tajuk Law..."}});
+      const addBtn = el("button",{className:"btn btn-full mt-2",text:"Tambah Tajuk Law Baharu"});
+      const listContainer = el("div",{className:"section scroll-y",style:"max-height:60vh;"});
+
+      card.appendChild(searchInput);
+      card.appendChild(addBtn);
+      card.appendChild(el("div",{className:"divider"}));
+      card.appendChild(listContainer);
+
+      spaRoot.innerHTML = "";
+      spaRoot.appendChild(card);
+
+      // Tambah tajuk baharu
+      addBtn.addEventListener("click",async()=>{
+        const name = prompt("Nama Tajuk Law:");
+        if(!name) return;
+        await fsTopicsCol().add({name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+        loadTopics();
+      });
+
+      // Load senarai tajuk
+      async function loadTopics(){
+        listContainer.innerHTML = "";
+        const snap = await fsTopicsCol().orderBy("createdAt","asc").get();
+        if(snap.empty){
+          listContainer.appendChild(el("div",{className:"text-xs muted",text:"Tiada tajuk. Tambah tajuk baharu."}));
+          return;
+        }
+        snap.forEach(d=>{
+          const topic={id:d.id,...d.data()};
+          const item=el("div",{className:"list-item"});
+          const header=el("div",{className:"list-item-header"});
+          header.appendChild(el("div",{className:"list-item-title",text:topic.name}));
+          const actions=el("div",{className:"list-item-actions"});
+          const btnEdit=el("button",{className:"btn btn-xs btn-ghost",text:"Sunting"});
+          const btnDelete=el("button",{className:"btn btn-xs btn-ghost",text:"Padam"});
+          btnDelete.style.color="#fecaca";
+          actions.appendChild(btnEdit); actions.appendChild(btnDelete);
+          header.appendChild(actions); item.appendChild(header);
+
+          const meta=el("div",{className:"list-item-meta"});
+          meta.appendChild(el("span",{text:"Folder"}));
+          item.appendChild(meta);
+
+          // Klik → masuk ke Folder Page
+          item.addEventListener("click",(e)=>{
+            if(e.target===btnEdit||e.target===btnDelete) return;
+            APP_STATE.fatherStress.topicId=topic.id;
+            setRoute("fsFolders");
+          });
+
+          // Edit
+          btnEdit.addEventListener("click",async(e)=>{
+            e.stopPropagation();
+            const newName=prompt("Nama baru:",topic.name);
+            if(!newName) return;
+            await fsTopicsCol().doc(topic.id).update({name:newName});
+            loadTopics();
+          });
+
+          // Delete
+          btnDelete.addEventListener("click",async(e)=>{
+            e.stopPropagation();
+            if(!confirm("Padam tajuk ini?")) return;
+            await fsTopicsCol().doc(topic.id).delete();
+            loadTopics();
+          });
+
+          listContainer.appendChild(item);
+        });
+      }
+
+      searchInput.addEventListener("input",()=>loadTopics());
+      loadTopics();
+    }
+
+    // ====== Folder Page FatherStress ======
+    async function renderFsFolders(){
+      const topicId = APP_STATE.fatherStress.topicId;
+      if(!topicId) return setRoute("fsRoot");
+
+      const topicDoc = await fsTopicsCol().doc(topicId).get();
+      const topicName = topicDoc.exists ? topicDoc.data().name : "Tajuk Law";
+
+      const card = el("div",{className:"card"});
+
+      const header = el("div",{className:"card-header"});
+      header.appendChild(el("div",{className:"card-title",text:topicName}));
+      header.appendChild(el("div",{className:"card-subtitle",text:"Tambah Law — Folder Idea"}));
+      const backBtn = el("button",{className:"btn btn-sm btn-ghost",text:"Kembali"});
+      backBtn.addEventListener("click",()=>setRoute("fsRoot"));
+      header.appendChild(backBtn);
+      card.appendChild(header);
+      card.appendChild(el("div",{className:"divider"}));
+
+      const searchInput = el("input",{attrs:{type:"search",placeholder:"Cari folder..."}});
+      const addBtn = el("button",{className:"btn btn-full mt-2",text:"Tambah Folder Baharu"});
+      const listContainer = el("div",{className:"section scroll-y",style:"max-height:60vh;"});
+
+      card.appendChild(searchInput);
+      card.appendChild(addBtn);
+      card.appendChild(el("div",{className:"divider"}));
+      card.appendChild(listContainer);
+
+      spaRoot.innerHTML="";
+      spaRoot.appendChild(card);
+
+      // Tambah folder
+      addBtn.addEventListener("click",async()=>{
+        const name=prompt("Nama Folder:");
+        if(!name) return;
+        await fsFoldersCol(topicId).add({name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+        loadFolders();
+      });
+
+      // Load folder
+      async function loadFolders(){
+        listContainer.innerHTML="";
+        const snap=await fsFoldersCol(topicId).orderBy("createdAt","asc").get();
+        if(snap.empty){
+          listContainer.appendChild(el("div",{className:"text-xs muted",text:"Tiada folder. Tambah folder baharu."}));
+          return;
+        }
+        snap.forEach(f=>{
+          const folder={id:f.id,...f.data()};
+          const item=el("div",{className:"list-item"});
+          const header=el("div",{className:"list-item-header"});
+          header.appendChild(el("div",{className:"list-item-title",text:folder.name}));
+          const actions=el("div",{className:"list-item-actions"});
+          const btnEdit=el("button",{className:"btn btn-xs btn-ghost",text:"Sunting"});
+          const btnDelete=el("button",{className:"btn btn-xs btn-ghost",text:"Padam"});
+          btnDelete.style.color="#fecaca";
+          actions.appendChild(btnEdit); actions.appendChild(btnDelete);
+          header.appendChild(actions); item.appendChild(header);
+
+          const meta=el("div",{className:"list-item-meta"});
+          meta.appendChild(el("span",{text:"Folder"}));
+          item.appendChild(meta);
+
+          // Klik → masuk ke Codes Page
+          item.addEventListener("click",(e)=>{
+            if(e.target===btnEdit||e.target===btnDelete) return;
+            APP_STATE.fatherStress.folderId=folder.id;
+            setRoute("fsCodes");
+          });
+
+          // Edit
+          btnEdit.addEventListener("click",async(e)=>{
+            e.stopPropagation();
+            const newName=prompt("Nama baru:",folder.name);
+            if(!newName) return;
+            await fsFoldersCol(topicId).doc(folder.id).update({name:newName});
+            loadFolders();
+          });
+
+          // Delete
+          btnDelete.addEventListener("click",async(e)=>{
+            e.stopPropagation();
+            if(!confirm("Padam folder ini?")) return;
+            await fsFoldersCol(topicId).doc(folder.id).delete();
+            loadFolders();
+          });
+
+          listContainer.appendChild(item);
+        });
+      }
+
+      searchInput.addEventListener("input",()=>loadFolders());
+      loadFolders();
+    }
+
+    // ====== Codes Page FatherStress ======
+    async function renderFsCodes(){
+      const { topicId, folderId } = APP_STATE.fatherStress;
+      if(!topicId || !folderId) return setRoute("fsRoot");
+
+      const folderDoc = await fsFoldersCol(topicId).doc(folderId).get();
+      const folderName = folderDoc.exists ? folderDoc.data().name : "Folder";
+
+      const card = el("div",{className:"card"});
+
+      const header = el("div",{className:"card-header"});
+      header.appendChild(el("div",{className:"card-title",text:folderName}));
+      header.appendChild(el("div",{className:"card-subtitle",text:"Page Code — kumpulan untuk idea"}));
+      const backBtn = el("button",{className:"btn btn-sm btn-ghost",text:"Kembali"});
+      backBtn.addEventListener("click",()=>setRoute("fsFolders"));
+      header.appendChild(backBtn);
+      card.appendChild(header);
+      card.appendChild(el("div",{className:"divider"}));
+
+      const searchInput = el("input",{attrs:{type:"search",placeholder:"Cari code..."}});
+      const addBtn = el("button",{className:"btn btn-full mt-2",text:"Tambah Code Baharu"});
+      const listContainer = el("div",{className:"section scroll-y",style:"max-height:60vh;"});
+
+      card.appendChild(searchInput);
+      card.appendChild(addBtn);
+      card.appendChild(el("div",{className:"divider"}));
+      card.appendChild(listContainer);
+
+      spaRoot.innerHTML="";
+      spaRoot.appendChild(card);
+
+      // Tambah code
+      addBtn.addEventListener("click",async()=>{
+        const name=prompt("Nama Code:");
+        if(!name) return;
+        await fsCodesCol(topicId,folderId).add({name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+        loadCodes();
+      });
+
+      // Load code
+      async function loadCodes(){
+        listContainer.innerHTML="";
+        const snap=await fsCodesCol(topicId,folderId).orderBy("createdAt","asc").get();
+        if(snap.empty){
+          listContainer.appendChild(el("div",{className:"text-xs muted",text:"Tiada code. Tambah code baharu."}));
+          return;
+        }
+        snap.forEach(c=>{
+          const code={id:c.id,...c.data()};
+          const item=el("div",{className:"list-item"});
+          const header=el("div",{className:"list-item-header"});
+          header.appendChild(el("div",{className:"list-item-title",text:code.name}));
+          const actions=el("div",{className:"list-item-actions"});
+          const btnEdit=el("button",{className:"btn btn-xs btn-ghost",text:"Sunting"});
+          const btnDelete=el("button",{className:"btn btn-xs btn-ghost",text:"Padam"});
+          btnDelete.style.color="#fecaca";
+          actions.appendChild(btnEdit); actions.appendChild(btnDelete);
+          header.appendChild(actions); item.appendChild(header);
+
+          const meta=el("div",{className:"list-item-meta"});
+          meta.appendChild(el("span",{text:"Code"}));
+          item.appendChild(meta);
+
+          // Klik → masuk ke Bundles Page
+          item.addEventListener("click",(e)=>{
+            if(e.target===btnEdit||e.target===btnDelete) return;
+            APP_STATE.fatherStress.codeId=code.id;
+            setRoute("fsBundles");
+          });
+
+          // Edit
+          btnEdit.addEventListener("click",async(e)=>{
+            e.stopPropagation();
+            const newName=prompt("Nama baru:",code.name);
+            if(!newName) return;
+            await fsCodesCol(topicId,folderId).doc(code.id).update({name:newName});
+            loadCodes();
+          });
+
+          // Delete
+          btnDelete.addEventListener("click",async(e)=>{
+            e.stopPropagation();
+            if(!confirm("Padam code ini?")) return;
+            await fsCodesCol(topicId,folderId).doc(code.id).delete();
+            loadCodes();
+          });
+
+          listContainer.appendChild(item);
+        });
+      }
+
+      searchInput.addEventListener("input",()=>loadCodes());
+      loadCodes();
+    }
+
+    // ====== Bundles Page FatherStress ======
+    async function renderFsBundles(){
+      const { topicId, folderId, codeId } = APP_STATE.fatherStress;
+      if(!topicId || !folderId || !codeId) return setRoute("fsRoot");
+
+      const codeDoc = await fsCodesCol(topicId,folderId).doc(codeId).get();
+      const codeName = codeDoc.exists ? codeDoc.data().name : "Code";
+
+      const card = el("div",{className:"card"});
+
+      const header = el("div",{className:"card-header"});
+      header.appendChild(el("div",{className:"card-title",text:codeName}));
+      header.appendChild(el("div",{className:"card-subtitle",text:'Page "Tambah bundle" — kumpulan bundle idea'}));
+      const backBtn = el("button",{className:"btn btn-sm btn-ghost",text:"Kembali"});
+      backBtn.addEventListener("click",()=>setRoute("fsCodes"));
+      header.appendChild(backBtn);
+      card.appendChild(header);
+      card.appendChild(el("div",{className:"divider"}));
+
+      const addBtn = el("button",{className:"btn btn-full",text:"Tambah bundle"});
+      const listContainer = el("div",{className:"section scroll-y",style:"max-height:60vh;"});
+
+      card.appendChild(addBtn);
+      card.appendChild(el("div",{className:"divider"}));
+      card.appendChild(listContainer);
+
+      spaRoot.innerHTML="";
+      spaRoot.appendChild(card);
+
+      // Tambah bundle
+      addBtn.addEventListener("click",async()=>{
+        const name=prompt("Nama bundle:");
+        if(!name) return;
+        await fsBundlesCol(topicId,folderId,codeId).add({
+          name,
+          ideaSpontan:"",
+          source:"",
+          estimateWhen:"",
+          note:"",
+          createdAt:firebase.firestore.FieldValue.serverTimestamp()
+        });
+        loadBundles();
+      });
+
+      // Load bundle
+      async function loadBundles(){
+        listContainer.innerHTML="";
+        const snap=await fsBundlesCol(topicId,folderId,codeId).orderBy("createdAt","asc").get();
+        if(snap.empty){
+          listContainer.appendChild(el("div",{className:"text-xs muted",text:"Tiada bundle. Tambah bundle baharu."}));
+          return;
+        }
+        snap.forEach(b=>{
+          const bundle={id:b.id,...b.data()};
+          const item=el("div",{className:"list-item"});
+          const header=el("div",{className:"list-item-header"});
+          header.appendChild(el("div",{className:"list-item-title",text:bundle.name}));
+          const actions=el("div",{className:"list-item-actions"});
+          const btnEdit=el("button",{className:"btn btn-xs btn-ghost",text:"Sunting nama"});
+          const btnDelete=el("button",{className:"btn btn-xs btn-ghost",text:"Padam"});
+          btnDelete.style.color="#fecaca";
+          actions.appendChild(btnEdit); actions.appendChild(btnDelete);
+          header.appendChild(actions); item.appendChild(header);
+
+          // Klik → masuk ke Bundle Detail
+          item.addEventListener("click",(e)=>{
+            if(e.target===btnEdit||e.target===btnDelete) return;
+            APP_STATE.fatherStress.bundleId=bundle.id;
+            setRoute("fsBundleDetail");
+          });
+
+          // Edit
+          btnEdit.addEventListener("click",async(e)=>{
+            e.stopPropagation();
+            const newName=prompt("Nama baru:",bundle.name);
+            if(!newName) return;
+            await fsBundlesCol(topicId,folderId,codeId).doc(bundle.id).update({name:newName});
+            loadBundles();
+          });
+
+          // Delete
+          btnDelete.addEventListener("click",async(e)=>{
+            e.stopPropagation();
+            if(!confirm("Padam bundle ini?")) return;
+            await fsBundlesCol(topicId,folderId,codeId).doc(bundle.id).delete();
+            loadBundles();
+          });
+
+          listContainer.appendChild(item);
+        });
+      }
+
+      loadBundles();
+    }
+
+    // ====== Bundle Detail Page FatherStress ======
+    async function renderFsBundleDetail(){
+      const { topicId, folderId, codeId, bundleId } = APP_STATE.fatherStress;
+      if(!topicId || !folderId || !codeId || !bundleId) return setRoute("fsRoot");
+
+      const docRef = fsBundlesCol(topicId,folderId,codeId).doc(bundleId);
+      const docSnap = await docRef.get();
+      if(!docSnap.exists){
+        alert("Bundle tidak ditemui.");
+        setRoute("fsBundles");
+        return;
+      }
+      const data = docSnap.data();
+
+      const card = el("div",{className:"card"});
+
+      const header = el("div",{className:"card-header"});
+      header.appendChild(el("div",{className:"card-title",text:data.name || "Bundle"}));
+      const backBtn = el("button",{className:"btn btn-sm btn-ghost",text:"Kembali"});
+      backBtn.addEventListener("click",()=>setRoute("fsBundles"));
+      header.appendChild(backBtn);
+      card.appendChild(header);
+      card.appendChild(el("div",{className:"divider"}));
+
+      const section = el("div",{className:"section"});
+
+      const ideaLabel = el("div",{className:"section-title",text:"Idea spontan"});
+      const ideaInput = el("textarea"); ideaInput.value = data.ideaSpontan || "";
+
+      const sourceLabel = el("div",{className:"section-title",text:"Tempat dapat idea spontan ini"});
+      const sourceInput = el("textarea"); sourceInput.value = data.source || "";
+
+      const whenLabel = el("div",{className:"section-title",text:"Anggaran bila untuk mewujudkan idea spontan ini"});
+      const whenInput = el("textarea"); whenInput.value = data.estimateWhen || "";
+
+      const noteLabel = el("div",{className:"section-title",text:"Nota tambahan"});
+      const noteInput = el("textarea"); noteInput.value = data.note || "";
+
+      section.appendChild(ideaLabel);
+      section.appendChild(ideaInput);
+      section.appendChild(sourceLabel);
+      section.appendChild(sourceInput);
+      section.appendChild(whenLabel);
+      section.appendChild(whenInput);
+      section.appendChild(noteLabel);
+      section.appendChild(noteInput);
+
+      const hint = el("div",{className:"section-note",text:"Perubahan disimpan automatik ke cloud (Firestore)."});
+      card.appendChild(section);
+      card.appendChild(hint);
+
+      spaRoot.innerHTML="";
+      spaRoot.appendChild(card);
+
+      // Auto-save
+      let saveTimeout=null;
+      function scheduleSave(){
+        if(saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout=setTimeout(async()=>{
+          await docRef.update({
+            ideaSpontan:ideaInput.value,
+            source:sourceInput.value,
+            estimateWhen:whenInput.value,
+            note:noteInput.value,
+            updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+          });
+        },600);
+      }
+      [ideaInput,sourceInput,whenInput,noteInput].forEach(inp=>inp.addEventListener("input",scheduleSave));
+    }
+
+    // ====== Boot ======
+    render();
+  </script>
+
+  <!-- Service worker register -->
+  <script>
+    if("serviceWorker" in navigator){
+      navigator.serviceWorker.register("service-worker.js");
+    }
+  </script>
+</body>
+</html>
+
+
+
