@@ -31,6 +31,7 @@
   </style>
 </head>
 <body>
+  <div id="spa-root"></div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -38,376 +39,406 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
   <script src="firebase-config.js"></script>
 
-    <script>
-    // ====== App State ======
-    const APP_STATE = { route:"login", user:null, fatherStress:{} };
-    const spaRoot = document.getElementById("spa-root");
-
-    // ====== Helpers ======
-    function el(tag,opts={}){
-      const e=document.createElement(tag);
-      if(opts.className) e.className=opts.className;
-      if(opts.text) e.textContent=opts.text;
-      if(opts.attrs) for(const k in opts.attrs) e.setAttribute(k,opts.attrs[k]);
-      if(opts.style) e.setAttribute("style",opts.style);
-      return e;
-    }
-    function setRoute(r){ APP_STATE.route=r; render(); }
-
-    // Firestore collections
-    const fsTopicsCol = ()=>firebase.firestore().collection("users").doc(APP_STATE.user.uid).collection("fatherstress_topics");
-    const fsFoldersCol = (topicId)=>fsTopicsCol().doc(topicId).collection("folders");
-    const fsCodesCol = (topicId,folderId)=>fsFoldersCol(topicId).doc(folderId).collection("codes");
-    const fsBundlesCol = (topicId,folderId,codeId)=>fsCodesCol(topicId,folderId).doc(codeId).collection("bundles");
-
-    // ====== Header with Logout ======
-    function makeHeader(title, subtitle){
-      const header = el("div",{className:"card-header"});
-      header.appendChild(el("div",{className:"card-title",text:title}));
-      if(subtitle) header.appendChild(el("div",{className:"card-subtitle",text:subtitle}));
-      const logoutBtn = el("button",{className:"btn btn-sm btn-ghost",text:"Logout"});
-      logoutBtn.addEventListener("click",async()=>{
-        await firebase.auth().signOut();
-        APP_STATE.user=null;
-        setRoute("login");
-      });
-      header.appendChild(logoutBtn);
-      return header;
-    }
-  </script>
-
   <script>
-    // ====== Login Page ======
-    async function renderLogin(){
-      const card = el("div",{className:"card center-col"});
-      const header = el("div",{className:"card-header"});
-      header.appendChild(el("div",{className:"card-title",text:"FatherStress"}));
-      header.appendChild(el("div",{className:"card-subtitle",text:"Sign in to continue"}));
-      card.appendChild(header);
-      card.appendChild(el("div",{className:"divider"}));
+    document.addEventListener("DOMContentLoaded", () => {
+      // ====== App State ======
+      const APP_STATE = { route:"login", user:null, fatherStress:{} };
+      const spaRoot = document.getElementById("spa-root");
 
-      // Anonymous Login
-      const btnAnon = el("button",{className:"btn btn-full btn-pill",text:"Masuk (Anonymous)"});
-      btnAnon.addEventListener("click",async()=>{
-        await firebase.auth().signInAnonymously();
-      });
-      card.appendChild(btnAnon);
-
-      // Google Login
-      const btnGoogle = el("button",{className:"btn btn-full btn-pill mt-2",text:"Login dengan Google"});
-      btnGoogle.addEventListener("click",async()=>{
-        const provider = new firebase.auth.GoogleAuthProvider();
-        try {
-          await firebase.auth().signInWithPopup(provider);
-        } catch(err){ alert("Gagal login Google: "+err.message); }
-      });
-      card.appendChild(btnGoogle);
-
-      spaRoot.innerHTML=""; spaRoot.appendChild(card);
-    }
-
-    // ====== Home Page ======
-    function renderHome(){
-      const card = el("div",{className:"card"});
-      card.appendChild(makeHeader("FatherStress","Catat idea baharu"));
-      card.appendChild(el("div",{className:"divider"}));
-
-      const btnRoot = el("button",{className:"btn btn-full",text:"Masuk ke Root Page"});
-      btnRoot.addEventListener("click",()=>setRoute("fsRoot"));
-      card.appendChild(btnRoot);
-
-      spaRoot.innerHTML=""; spaRoot.appendChild(card);
-    }
-
-    // ====== Auth State Persistence ======
-    firebase.auth().onAuthStateChanged(user=>{
-      if(user){
-        APP_STATE.user=user;
-        if(APP_STATE.route==="login") setRoute("home");
-      } else {
-        APP_STATE.user=null;
-        setRoute("login");
+      // ====== Helpers ======
+      function el(tag,opts={}){
+        const e=document.createElement(tag);
+        if(opts.className) e.className=opts.className;
+        if(opts.text) e.textContent=opts.text;
+        if(opts.attrs) for(const k in opts.attrs) e.setAttribute(k,opts.attrs[k]);
+        if(opts.style) e.setAttribute("style",opts.style);
+        return e;
       }
+      function setRoute(r){ APP_STATE.route=r; render(); }
+
+      // Firestore collections
+      const fsTopicsCol = ()=>firebase.firestore().collection("users").doc(APP_STATE.user.uid).collection("fatherstress_topics");
+      const fsFoldersCol = (topicId)=>fsTopicsCol().doc(topicId).collection("folders");
+      const fsCodesCol = (topicId,folderId)=>fsFoldersCol(topicId).doc(folderId).collection("codes");
+      const fsBundlesCol = (topicId,folderId,codeId)=>fsCodesCol(topicId,folderId).doc(codeId).collection("bundles");
+
+      // ====== Header with Logout ======
+      function makeHeader(title, subtitle){
+        const header = el("div",{className:"card-header"});
+        header.appendChild(el("div",{className:"card-title",text:title}));
+        if(subtitle) header.appendChild(el("div",{className:"card-subtitle",text:subtitle}));
+        const logoutBtn = el("button",{className:"btn btn-sm btn-ghost",text:"Logout"});
+        logoutBtn.addEventListener("click",async()=>{
+          await firebase.auth().signOut();
+          APP_STATE.user=null;
+          setRoute("login");
+        });
+        header.appendChild(logoutBtn);
+        return header;
+      }
+
+      // 👉 semua fungsi page akan sambung di Part 4–10
     });
   </script>
 
-  <script>
-    // ====== Root Page ======
-    async function renderFsRoot(){
-      const card = el("div",{className:"card"});
-      card.appendChild(makeHeader("Root","Senarai topik FatherStress"));
-      card.appendChild(el("div",{className:"divider"}));
+    document.addEventListener("DOMContentLoaded", () => {
+      // ... (Part 3 code di atas)
 
-      const addBtn = el("button",{className:"btn btn-full",text:"Tambah Topik"});
-      const listContainer = el("div",{className:"section scroll-y",style:"max-height:60vh;"});
+      // ====== Login Page ======
+      async function renderLogin(){
+        const card = el("div",{className:"card center-col"});
+        const header = el("div",{className:"card-header"});
+        header.appendChild(el("div",{className:"card-title",text:"FatherStress"}));
+        header.appendChild(el("div",{className:"card-subtitle",text:"Sign in to continue"}));
+        card.appendChild(header);
+        card.appendChild(el("div",{className:"divider"}));
 
-      card.appendChild(addBtn);
-      card.appendChild(el("div",{className:"divider"}));
-      card.appendChild(listContainer);
-
-      spaRoot.innerHTML=""; 
-      spaRoot.appendChild(card);
-
-      // Tambah topik baru
-      addBtn.addEventListener("click",async()=>{
-        const name=prompt("Nama topik:"); 
-        if(!name) return;
-        await fsTopicsCol().add({
-          name,
-          createdAt:firebase.firestore.FieldValue.serverTimestamp()
+        // Anonymous Login
+        const btnAnon = el("button",{className:"btn btn-full btn-pill",text:"Masuk (Anonymous)"});
+        btnAnon.addEventListener("click",async()=>{
+          await firebase.auth().signInAnonymously();
         });
+        card.appendChild(btnAnon);
+
+        // Google Login
+        const btnGoogle = el("button",{className:"btn btn-full btn-pill mt-2",text:"Login dengan Google"});
+        btnGoogle.addEventListener("click",async()=>{
+          const provider = new firebase.auth.GoogleAuthProvider();
+          try {
+            await firebase.auth().signInWithPopup(provider);
+          } catch(err){ alert("Gagal login Google: "+err.message); }
+        });
+        card.appendChild(btnGoogle);
+
+        spaRoot.innerHTML=""; 
+        spaRoot.appendChild(card);
+      }
+
+      // ====== Home Page ======
+      function renderHome(){
+        const card = el("div",{className:"card"});
+        card.appendChild(makeHeader("FatherStress","Catat idea baharu"));
+        card.appendChild(el("div",{className:"divider"}));
+
+        const btnRoot = el("button",{className:"btn btn-full",text:"Masuk ke Root Page"});
+        btnRoot.addEventListener("click",()=>setRoute("fsRoot"));
+        card.appendChild(btnRoot);
+
+        spaRoot.innerHTML=""; 
+        spaRoot.appendChild(card);
+      }
+
+      // ====== Auth State Persistence ======
+      firebase.auth().onAuthStateChanged(user=>{
+        if(user){
+          APP_STATE.user=user;
+          if(APP_STATE.route==="login") setRoute("home");
+        } else {
+          APP_STATE.user=null;
+          setRoute("login");
+        }
+      });
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // ... (Part 3 & 4 code di atas)
+
+      // ====== Root Page ======
+      async function renderFsRoot(){
+        const card = el("div",{className:"card"});
+        card.appendChild(makeHeader("Root","Senarai topik FatherStress"));
+        card.appendChild(el("div",{className:"divider"}));
+
+        const addBtn = el("button",{className:"btn btn-full",text:"Tambah Topik"});
+        const listContainer = el("div",{className:"section scroll-y",style:"max-height:60vh;"});
+
+        card.appendChild(addBtn);
+        card.appendChild(el("div",{className:"divider"}));
+        card.appendChild(listContainer);
+
+        spaRoot.innerHTML=""; 
+        spaRoot.appendChild(card);
+
+        // Tambah topik baru
+        addBtn.addEventListener("click",async()=>{
+          const name=prompt("Nama topik:"); 
+          if(!name) return;
+          await fsTopicsCol().add({
+            name,
+            createdAt:firebase.firestore.FieldValue.serverTimestamp()
+          });
+          loadTopics();
+        });
+
+        // Load senarai topik
+        async function loadTopics(){
+          listContainer.innerHTML="";
+          const snap=await fsTopicsCol().orderBy("createdAt","asc").get();
+          if(snap.empty){ 
+            listContainer.appendChild(el("div",{className:"muted",text:"Tiada topik."})); 
+            return; 
+          }
+          snap.forEach(t=>{
+            const topic={id:t.id,...t.data()};
+            const item=el("div",{className:"list-item"});
+            item.appendChild(el("div",{className:"list-item-title",text:topic.name}));
+            item.addEventListener("click",()=>{
+              APP_STATE.fatherStress.topicId=topic.id;
+              setRoute("fsFolders");
+            });
+            listContainer.appendChild(item);
+          });
+        }
         loadTopics();
-      });
-
-      // Load senarai topik
-      async function loadTopics(){
-        listContainer.innerHTML="";
-        const snap=await fsTopicsCol().orderBy("createdAt","asc").get();
-        if(snap.empty){ 
-          listContainer.appendChild(el("div",{className:"muted",text:"Tiada topik."})); 
-          return; 
-        }
-        snap.forEach(t=>{
-          const topic={id:t.id,...t.data()};
-          const item=el("div",{className:"list-item"});
-          item.appendChild(el("div",{className:"list-item-title",text:topic.name}));
-          item.addEventListener("click",()=>{
-            APP_STATE.fatherStress.topicId=topic.id;
-            setRoute("fsFolders");
-          });
-          listContainer.appendChild(item);
-        });
       }
-      loadTopics();
-    }
-  </script>
+    });
 
-  <script>
-    // ====== Folder Page ======
-    async function renderFsFolders(){
-      const {topicId}=APP_STATE.fatherStress;
-      if(!topicId) return setRoute("fsRoot");
+    document.addEventListener("DOMContentLoaded", () => {
+      // ... (Part 3–5 code di atas)
 
-      const topicDoc=await fsTopicsCol().doc(topicId).get();
-      const topicName=topicDoc.exists?topicDoc.data().name:"Topik";
+      // ====== Folder Page ======
+      async function renderFsFolders(){
+        const {topicId}=APP_STATE.fatherStress;
+        if(!topicId) return setRoute("fsRoot");
 
-      const card=el("div",{className:"card"});
-      card.appendChild(makeHeader(topicName,"Senarai folder"));
-      card.appendChild(el("div",{className:"divider"}));
+        const topicDoc=await fsTopicsCol().doc(topicId).get();
+        const topicName=topicDoc.exists?topicDoc.data().name:"Topik";
 
-      const addBtn=el("button",{className:"btn btn-full",text:"Tambah Folder"});
-      const listContainer=el("div",{className:"section scroll-y",style:"max-height:60vh;"});
+        const card=el("div",{className:"card"});
+        card.appendChild(makeHeader(topicName,"Senarai folder"));
+        card.appendChild(el("div",{className:"divider"}));
 
-      card.appendChild(addBtn);
-      card.appendChild(el("div",{className:"divider"}));
-      card.appendChild(listContainer);
+        const addBtn=el("button",{className:"btn btn-full",text:"Tambah Folder"});
+        const listContainer=el("div",{className:"section scroll-y",style:"max-height:60vh;"});
 
-      spaRoot.innerHTML=""; 
-      spaRoot.appendChild(card);
+        card.appendChild(addBtn);
+        card.appendChild(el("div",{className:"divider"}));
+        card.appendChild(listContainer);
 
-      // Tambah folder baru
-      addBtn.addEventListener("click",async()=>{
-        const name=prompt("Nama folder:"); 
-        if(!name) return;
-        await fsFoldersCol(topicId).add({
-          name,
-          createdAt:firebase.firestore.FieldValue.serverTimestamp()
+        spaRoot.innerHTML=""; 
+        spaRoot.appendChild(card);
+
+        // Tambah folder baru
+        addBtn.addEventListener("click",async()=>{
+          const name=prompt("Nama folder:"); 
+          if(!name) return;
+          await fsFoldersCol(topicId).add({
+            name,
+            createdAt:firebase.firestore.FieldValue.serverTimestamp()
+          });
+          loadFolders();
         });
+
+        // Load senarai folder
+        async function loadFolders(){
+          listContainer.innerHTML="";
+          const snap=await fsFoldersCol(topicId).orderBy("createdAt","asc").get();
+          if(snap.empty){ 
+            listContainer.appendChild(el("div",{className:"muted",text:"Tiada folder."})); 
+            return; 
+          }
+          snap.forEach(f=>{
+            const folder={id:f.id,...f.data()};
+            const item=el("div",{className:"list-item"});
+            item.appendChild(el("div",{className:"list-item-title",text:folder.name}));
+            item.addEventListener("click",()=>{
+              APP_STATE.fatherStress.folderId=folder.id;
+              setRoute("fsCodes");
+            });
+            listContainer.appendChild(item);
+          });
+        }
         loadFolders();
-      });
-
-      // Load senarai folder
-      async function loadFolders(){
-        listContainer.innerHTML="";
-        const snap=await fsFoldersCol(topicId).orderBy("createdAt","asc").get();
-        if(snap.empty){ 
-          listContainer.appendChild(el("div",{className:"muted",text:"Tiada folder."})); 
-          return; 
-        }
-        snap.forEach(f=>{
-          const folder={id:f.id,...f.data()};
-          const item=el("div",{className:"list-item"});
-          item.appendChild(el("div",{className:"list-item-title",text:folder.name}));
-          item.addEventListener("click",()=>{
-            APP_STATE.fatherStress.folderId=folder.id;
-            setRoute("fsCodes");
-          });
-          listContainer.appendChild(item);
-        });
       }
-      loadFolders();
-    }
-  </script>
+    });
 
-  <script>
-    // ====== Codes Page ======
-    async function renderFsCodes(){
-      const {topicId,folderId}=APP_STATE.fatherStress;
-      if(!topicId || !folderId) return setRoute("fsFolders");
+    document.addEventListener("DOMContentLoaded", () => {
+      // ... (Part 3–6 code di atas)
 
-      const folderDoc=await fsFoldersCol(topicId).doc(folderId).get();
-      const folderName=folderDoc.exists?folderDoc.data().name:"Folder";
+      // ====== Codes Page ======
+      async function renderFsCodes(){
+        const {topicId,folderId}=APP_STATE.fatherStress;
+        if(!topicId || !folderId) return setRoute("fsFolders");
 
-      const card=el("div",{className:"card"});
-      card.appendChild(makeHeader(folderName,"Senarai codes"));
-      card.appendChild(el("div",{className:"divider"}));
+        const folderDoc=await fsFoldersCol(topicId).doc(folderId).get();
+        const folderName=folderDoc.exists?folderDoc.data().name:"Folder";
 
-      const addBtn=el("button",{className:"btn btn-full",text:"Tambah Code"});
-      const listContainer=el("div",{className:"section scroll-y",style:"max-height:60vh;"});
+        const card=el("div",{className:"card"});
+        card.appendChild(makeHeader(folderName,"Senarai codes"));
+        card.appendChild(el("div",{className:"divider"}));
 
-      card.appendChild(addBtn);
-      card.appendChild(el("div",{className:"divider"}));
-      card.appendChild(listContainer);
+        const addBtn=el("button",{className:"btn btn-full",text:"Tambah Code"});
+        const listContainer=el("div",{className:"section scroll-y",style:"max-height:60vh;"});
 
-      spaRoot.innerHTML=""; 
-      spaRoot.appendChild(card);
+        card.appendChild(addBtn);
+        card.appendChild(el("div",{className:"divider"}));
+        card.appendChild(listContainer);
 
-      // Tambah code baru
-      addBtn.addEventListener("click",async()=>{
-        const name=prompt("Nama code:"); 
-        if(!name) return;
-        await fsCodesCol(topicId,folderId).add({
-          name,
-          createdAt:firebase.firestore.FieldValue.serverTimestamp()
+        spaRoot.innerHTML=""; 
+        spaRoot.appendChild(card);
+
+        // Tambah code baru
+        addBtn.addEventListener("click",async()=>{
+          const name=prompt("Nama code:"); 
+          if(!name) return;
+          await fsCodesCol(topicId,folderId).add({
+            name,
+            createdAt:firebase.firestore.FieldValue.serverTimestamp()
+          });
+          loadCodes();
         });
+
+        // Load senarai codes
+        async function loadCodes(){
+          listContainer.innerHTML="";
+          const snap=await fsCodesCol(topicId,folderId).orderBy("createdAt","asc").get();
+          if(snap.empty){ 
+            listContainer.appendChild(el("div",{className:"muted",text:"Tiada code."})); 
+            return; 
+          }
+          snap.forEach(c=>{
+            const code={id:c.id,...c.data()};
+            const item=el("div",{className:"list-item"});
+            item.appendChild(el("div",{className:"list-item-title",text:code.name}));
+            item.addEventListener("click",()=>{
+              APP_STATE.fatherStress.codeId=code.id;
+              setRoute("fsBundles");
+            });
+            listContainer.appendChild(item);
+          });
+        }
         loadCodes();
-      });
-
-      // Load senarai codes
-      async function loadCodes(){
-        listContainer.innerHTML="";
-        const snap=await fsCodesCol(topicId,folderId).orderBy("createdAt","asc").get();
-        if(snap.empty){ 
-          listContainer.appendChild(el("div",{className:"muted",text:"Tiada code."})); 
-          return; 
-        }
-        snap.forEach(c=>{
-          const code={id:c.id,...c.data()};
-          const item=el("div",{className:"list-item"});
-          item.appendChild(el("div",{className:"list-item-title",text:code.name}));
-          item.addEventListener("click",()=>{
-            APP_STATE.fatherStress.codeId=code.id;
-            setRoute("fsBundles");
-          });
-          listContainer.appendChild(item);
-        });
       }
-      loadCodes();
-    }
-  </script>
+    });
 
-    <script>
-    // ====== Bundles Page ======
-    async function renderFsBundles(){
-      const {topicId,folderId,codeId}=APP_STATE.fatherStress;
-      if(!topicId || !folderId || !codeId) return setRoute("fsCodes");
+    document.addEventListener("DOMContentLoaded", () => {
+      // ... (Part 3–7 code di atas)
 
-      const codeDoc=await fsCodesCol(topicId,folderId).doc(codeId).get();
-      const codeName=codeDoc.exists?codeDoc.data().name:"Code";
+      // ====== Bundles Page ======
+      async function renderFsBundles(){
+        const {topicId,folderId,codeId}=APP_STATE.fatherStress;
+        if(!topicId || !folderId || !codeId) return setRoute("fsCodes");
 
-      const card=el("div",{className:"card"});
-      card.appendChild(makeHeader(codeName,"Senarai bundles"));
-      card.appendChild(el("div",{className:"divider"}));
+        const codeDoc=await fsCodesCol(topicId,folderId).doc(codeId).get();
+        const codeName=codeDoc.exists?codeDoc.data().name:"Code";
 
-      const addBtn=el("button",{className:"btn btn-full",text:"Tambah Bundle"});
-      const listContainer=el("div",{className:"section scroll-y",style:"max-height:60vh;"});
+        const card=el("div",{className:"card"});
+        card.appendChild(makeHeader(codeName,"Senarai bundles"));
+        card.appendChild(el("div",{className:"divider"}));
 
-      card.appendChild(addBtn);
-      card.appendChild(el("div",{className:"divider"}));
-      card.appendChild(listContainer);
+        const addBtn=el("button",{className:"btn btn-full",text:"Tambah Bundle"});
+        const listContainer=el("div",{className:"section scroll-y",style:"max-height:60vh;"});
 
-      spaRoot.innerHTML=""; 
-      spaRoot.appendChild(card);
+        card.appendChild(addBtn);
+        card.appendChild(el("div",{className:"divider"}));
+        card.appendChild(listContainer);
 
-      // Tambah bundle baru
-      addBtn.addEventListener("click",async()=>{
-        const name=prompt("Nama bundle:"); 
-        if(!name) return;
-        await fsBundlesCol(topicId,folderId,codeId).add({
-          name,
-          createdAt:firebase.firestore.FieldValue.serverTimestamp()
+        spaRoot.innerHTML=""; 
+        spaRoot.appendChild(card);
+
+        // Tambah bundle baru
+        addBtn.addEventListener("click",async()=>{
+          const name=prompt("Nama bundle:"); 
+          if(!name) return;
+          await fsBundlesCol(topicId,folderId,codeId).add({
+            name,
+            createdAt:firebase.firestore.FieldValue.serverTimestamp()
+          });
+          loadBundles();
         });
+
+        // Load senarai bundles
+        async function loadBundles(){
+          listContainer.innerHTML="";
+          const snap=await fsBundlesCol(topicId,folderId,codeId).orderBy("createdAt","asc").get();
+          if(snap.empty){ 
+            listContainer.appendChild(el("div",{className:"muted",text:"Tiada bundle."})); 
+            return; 
+          }
+          snap.forEach(b=>{
+            const bundle={id:b.id,...b.data()};
+            const item=el("div",{className:"list-item"});
+            item.appendChild(el("div",{className:"list-item-title",text:bundle.name}));
+            item.addEventListener("click",()=>{
+              APP_STATE.fatherStress.bundleId=bundle.id;
+              setRoute("fsBundleDetail");
+            });
+            listContainer.appendChild(item);
+          });
+        }
         loadBundles();
-      });
+      }
+    });
 
-      // Load senarai bundles
-      async function loadBundles(){
-        listContainer.innerHTML="";
-        const snap=await fsBundlesCol(topicId,folderId,codeId).orderBy("createdAt","asc").get();
-        if(snap.empty){ 
-          listContainer.appendChild(el("div",{className:"muted",text:"Tiada bundle."})); 
-          return; 
+    document.addEventListener("DOMContentLoaded", () => {
+      // ... (Part 3–8 code di atas)
+
+      // ====== Bundle Detail Page ======
+      async function renderFsBundleDetail(){
+        const {topicId,folderId,codeId,bundleId}=APP_STATE.fatherStress;
+        if(!topicId || !folderId || !codeId || !bundleId) return setRoute("fsBundles");
+
+        const bundleDoc=await fsBundlesCol(topicId,folderId,codeId).doc(bundleId).get();
+        const bundleName=bundleDoc.exists?bundleDoc.data().name:"Bundle";
+
+        const card=el("div",{className:"card"});
+        card.appendChild(makeHeader(bundleName,"Detail bundle"));
+        card.appendChild(el("div",{className:"divider"}));
+
+        const noteArea=el("textarea",{attrs:{placeholder:"Catatan untuk bundle ini..."}});
+        card.appendChild(noteArea);
+
+        const saveBtn=el("button",{className:"btn btn-full",text:"Simpan Catatan"});
+        card.appendChild(saveBtn);
+
+        spaRoot.innerHTML="";
+        spaRoot.appendChild(card);
+
+        // Load catatan sedia ada
+        if(bundleDoc.exists && bundleDoc.data().note){
+          noteArea.value=bundleDoc.data().note;
         }
-        snap.forEach(b=>{
-          const bundle={id:b.id,...b.data()};
-          const item=el("div",{className:"list-item"});
-          item.appendChild(el("div",{className:"list-item-title",text:bundle.name}));
-          item.addEventListener("click",()=>{
-            APP_STATE.fatherStress.bundleId=bundle.id;
-            setRoute("fsBundleDetail");
+
+        // Simpan catatan
+        saveBtn.addEventListener("click",async()=>{
+          await fsBundlesCol(topicId,folderId,codeId).doc(bundleId).update({
+            note:noteArea.value,
+            updatedAt:firebase.firestore.FieldValue.serverTimestamp()
           });
-          listContainer.appendChild(item);
+          alert("Catatan disimpan!");
         });
       }
-      loadBundles();
-    }
-  </script>
+    });
 
-  <script>
-    // ====== Bundle Detail Page ======
-    async function renderFsBundleDetail(){
-      const {topicId,folderId,codeId,bundleId}=APP_STATE.fatherStress;
-      if(!topicId || !folderId || !codeId || !bundleId) return setRoute("fsBundles");
+    document.addEventListener("DOMContentLoaded", () => {
+      // ... (Part 3–9 code di atas)
 
-      const bundleDoc=await fsBundlesCol(topicId,folderId,codeId).doc(bundleId).get();
-      const bundleName=bundleDoc.exists?bundleDoc.data().name:"Bundle";
-
-      const card=el("div",{className:"card"});
-      card.appendChild(makeHeader(bundleName,"Detail bundle"));
-      card.appendChild(el("div",{className:"divider"}));
-
-      const noteArea=el("textarea",{attrs:{placeholder:"Catatan untuk bundle ini..."}});
-      card.appendChild(noteArea);
-
-      const saveBtn=el("button",{className:"btn btn-full",text:"Simpan Catatan"});
-      card.appendChild(saveBtn);
-
-      spaRoot.innerHTML="";
-      spaRoot.appendChild(card);
-
-      // Load catatan sedia ada
-      if(bundleDoc.exists && bundleDoc.data().note){
-        noteArea.value=bundleDoc.data().note;
+      // ====== Router & Render ======
+      function render(){
+        switch(APP_STATE.route){
+          case "login": renderLogin(); break;
+          case "home": renderHome(); break;
+          case "fsRoot": renderFsRoot(); break;
+          case "fsFolders": renderFsFolders(); break;
+          case "fsCodes": renderFsCodes(); break;
+          case "fsBundles": renderFsBundles(); break;
+          case "fsBundleDetail": renderFsBundleDetail(); break;
+          default: renderLogin();
+        }
       }
 
-      // Simpan catatan
-      saveBtn.addEventListener("click",async()=>{
-        await fsBundlesCol(topicId,folderId,codeId).doc(bundleId).update({
-          note:noteArea.value,
-          updatedAt:firebase.firestore.FieldValue.serverTimestamp()
-        });
-        alert("Catatan disimpan!");
-      });
-    }
+      // ====== Initial Render ======
+      render();
+    });
   </script>
 
+  <!-- Service Worker Registration -->
   <script>
-    // ====== Router & Render ======
-    function render(){
-      switch(APP_STATE.route){
-        case "login": renderLogin(); break;
-        case "home": renderHome(); break;
-        case "fsRoot": renderFsRoot(); break;
-        case "fsFolders": renderFsFolders(); break;
-        case "fsCodes": renderFsCodes(); break;
-        case "fsBundles": renderFsBundles(); break;
-        case "fsBundleDetail": renderFsBundleDetail(); break;
-        default: renderLogin();
-      }
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js")
+        .then(reg => console.log("Service Worker registered:", reg.scope))
+        .catch(err => console.error("Service Worker failed:", err));
     }
-
-    // ====== Initial Render ======
-    render();
   </script>
 </body>
 </html>
@@ -417,4 +448,3 @@
 
 
 
-  <div id="spa-root"></div>
