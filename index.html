@@ -195,16 +195,24 @@
     (()=>{ const sel=document.getElementById('fontSizeSelect'); for(let i=1;i<=60;i++){ const opt=document.createElement('option'); opt.value=i; opt.textContent=i+'pt'; sel.appendChild(opt);} })();
 
     // Toolbar actions
-    document.querySelectorAll('.toolbar [data-cmd]').forEach(btn=>{
-      btn.onclick=()=>{ document.execCommand(btn.dataset.cmd,false,null); noteChanged(); };
-    });
-    document.getElementById('highlightBtn').onclick=()=>{ document.execCommand('backColor',false,'#ffff00'); noteChanged(); };
-    document.getElementById('colorInput').oninput=e=>{ document.execCommand('foreColor',false,e.target.value); noteChanged(); };
-    document.getElementById('fontSizeSelect').onchange=e=>{
-      const sizePt=e.target.value+'pt';
-      const sel=window.getSelection(); if(sel.rangeCount){ const range=sel.getRangeAt(0); const span=document.createElement('span'); span.style.fontSize=sizePt; range.surroundContents(span); }
-      noteChanged();
-    };
+document.querySelectorAll('.toolbar [data-cmd]').forEach(btn=>{
+  btn.onclick=()=>{ document.execCommand(btn.dataset.cmd,false,null); noteChanged(); };
+});
+document.getElementById('colorInput').oninput=e=>{
+  document.execCommand('foreColor',false,e.target.value); 
+  noteChanged(); 
+};
+document.getElementById('fontSizeSelect').onchange=e=>{
+  const sizePt=e.target.value+'pt';
+  const sel=window.getSelection(); 
+  if(sel.rangeCount){ 
+    const range=sel.getRangeAt(0); 
+    const span=document.createElement('span'); 
+    span.style.fontSize=sizePt; 
+    range.surroundContents(span); 
+  }
+  noteChanged();
+};
 
     // Autosave
     const editor=document.getElementById('noteEditor');
