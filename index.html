@@ -76,6 +76,10 @@
       min-height:240px; padding:12px; border-radius:12px;
       border:1px solid var(--border); background:#0b1220; outline:none;
     }
+    .editor:empty:before {
+      content: attr(placeholder);
+      color: var(--muted);
+    }
     .subtext{color:var(--muted); font-size:12px}
     .header{
       display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;
@@ -98,6 +102,7 @@
   <!-- App main script -->
   <script defer src="app.js"></script>
 </head>
+
 <body>
   <div class="container">
     <!-- View: Login -->
@@ -106,7 +111,7 @@
       <p class="subtext">Log masuk dengan akaun Gmail untuk menyimpan cerita & skrip anda secara selamat.</p>
       <div class="divider"></div>
       <div class="row">
-        <button id="btn-google" class="btn">Log masuk dengan Google</button>
+        <button id="btn-google" class="btn" aria-label="Log masuk dengan Google">Log masuk dengan Google</button>
       </div>
     </section>
 
@@ -115,23 +120,23 @@
       <div class="header">
         <div class="title">Original Wan-Law</div>
         <div class="row">
-          <button id="btn-logout" class="btn-ghost">Logout</button>
+          <button id="btn-logout" class="btn-ghost" aria-label="Logout">Logout</button>
         </div>
       </div>
 
       <div class="row">
-        <input id="search-files" class="input search" placeholder="Cari Fail…" />
-        <button id="btn-add-file" class="btn">Tambah Fail</button>
+        <input id="search-files" class="input search" placeholder="Cari Fail…" aria-label="Cari Fail" />
+        <button id="btn-add-file" class="btn" aria-label="Tambah Fail">Tambah Fail</button>
       </div>
 
       <div id="files-list" class="list"></div>
     </section>
 
-    <!-- View: Subfolder -->
+      <!-- View: Subfolder -->
     <section id="view-folders" class="card hidden">
       <div class="header">
         <div class="row">
-          <span id="btn-back-home" class="btn-ghost back">← Kembali</span>
+          <span id="btn-back-home" class="btn-ghost back" aria-label="Kembali ke Home">← Kembali</span>
         </div>
         <div class="title">Original Wan-Law</div>
       </div>
@@ -139,8 +144,8 @@
       <p class="subtext" id="current-file-name"></p>
 
       <div class="row">
-        <input id="search-folders" class="input search" placeholder="Cari Folder (longgar: 1–2 huruf/nombor)…" />
-        <button id="btn-add-folder" class="btn">Tambah subfolderFolder Baharu</button>
+        <input id="search-folders" class="input search" placeholder="Cari Folder (longgar: 1–2 huruf/nombor)…" aria-label="Cari Folder" />
+        <button id="btn-add-folder" class="btn" aria-label="Tambah Subfolder Baharu">Tambah Subfolder Baharu</button>
       </div>
 
       <div id="folders-list" class="list"></div>
@@ -150,7 +155,7 @@
     <section id="view-note" class="card hidden">
       <div class="header">
         <div class="row">
-          <span id="btn-back-folders" class="btn-ghost back">← Kembali</span>
+          <span id="btn-back-folders" class="btn-ghost back" aria-label="Kembali ke Folders">← Kembali</span>
         </div>
         <div class="title">Original Wan-Law</div>
       </div>
@@ -158,10 +163,10 @@
       <p class="subtext" id="current-folder-name"></p>
 
       <div class="toolbar">
-        <button class="btn" data-action="bold">Bold</button>
-        <button class="btn" data-action="underline">Underline</button>
-        <input id="color-picker" type="color" title="Pilih warna perkataan" />
-        <input id="font-size" class="size-input" type="number" min="1" max="60" step="1" value="14" title="Saiz teks (1–60 pt)" />
+        <button class="btn" data-action="bold" aria-label="Bold">Bold</button>
+        <button class="btn" data-action="underline" aria-label="Underline">Underline</button>
+        <input id="color-picker" type="color" title="Pilih warna perkataan" aria-label="Pilih warna perkataan" />
+        <input id="font-size" class="size-input" type="number" min="1" max="60" step="1" value="14" title="Saiz teks (1–60 pt)" aria-label="Saiz teks" />
       </div>
 
       <div id="editor" class="editor" contenteditable="true" spellcheck="false" placeholder="Tulis nota anda di sini…"></div>
