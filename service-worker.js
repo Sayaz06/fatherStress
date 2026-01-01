@@ -1,4 +1,4 @@
-const CACHE_NAME = "fatherstress-cache-v7";
+const CACHE_NAME = "fatherstress-cache-v8";
 const ASSETS = [
   "/fatherStress/",
   "/fatherStress/index.html",
