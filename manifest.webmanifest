@@ -1,24 +1,23 @@
 {
-  "name": "FatherStress",
-  "short_name": "FatherStress",
-  "start_url": "index.html",
-  "scope": "./",
+  "name": "Original Wan-Law",
+  "short_name": "Wan-Law",
+  "start_url": ".",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#111827",
-  "description": "PWA untuk tajuk, folder, dan nota dengan autosave Firestore.",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "description": "Simpan pengurusan skrip & cerita — Original Wan-Law.",
   "icons": [
     {
       "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "icons/icon-512.png",
-      "sizes": "512x512",
+      "src": "icons/icon-152.png",
+      "sizes": "152x152",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
