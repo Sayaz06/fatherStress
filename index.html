@@ -62,7 +62,6 @@
       <div class="toolbar">
         <button data-cmd="bold">Bold</button>
         <button data-cmd="underline">Underline</button>
-        <button id="highlightBtn">Highlight</button>
         <input id="colorInput" type="color" value="#ffffff">
         <select id="fontSizeSelect"></select>
       </div>
@@ -199,7 +198,6 @@
     document.querySelectorAll('.toolbar [data-cmd]').forEach(btn=>{
       btn.onclick=()=>{ document.execCommand(btn.dataset.cmd,false,null); noteChanged(); };
     });
-    document.getElementById('highlightBtn').onclick=()=>{ document.execCommand('backColor',false,'#ffff00'); noteChanged(); };
     document.getElementById('colorInput').oninput=e=>{ document.execCommand('foreColor',false,e.target.value); noteChanged(); };
     document.getElementById('fontSizeSelect').onchange=e=>{
       const sizePt=e.target.value+'pt';
