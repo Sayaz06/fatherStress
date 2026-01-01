@@ -2,562 +2,238 @@
 <html lang="ms">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#111827" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>FatherStress</title>
-
-  <!-- PWA manifest -->
   <link rel="manifest" href="manifest.webmanifest" />
-
-  <!-- Icons for iOS/Android -->
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
-
-  <!-- Basic styles -->
   <style>
-    :root {
-      --bg: #0f172a;
-      --card: #111827;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-      --primary: #22d3ee;
-      --danger: #ef4444;
-      --success: #10b981;
-      --border: #1f2937;
-      --toolbar: #0b1220;
-      --dark-button: #0a0f1c;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
-      background: linear-gradient(180deg, #0a0f1c, #0f172a 30%, #0b1325 100%);
-      color: var(--text);
-      min-height: 100vh;
-    }
-    a { color: var(--primary); text-decoration: none; }
-    button {
-      background: var(--card);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 14px;
-      cursor: pointer;
-    }
-    button:hover { border-color: var(--primary); }
-    input, select {
-      background: #0a1220;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
-      width: 100%;
-    }
-    .container { max-width: 960px; margin: 0 auto; padding: 16px; }
-
-    /* Top app bar */
-    .appbar {
-      position: sticky;
-      top: 0; z-index: 20;
-      display: flex; align-items: center; gap: 8px;
-      background: rgba(10, 18, 32, 0.7);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid var(--border);
-      padding: 12px 16px;
-    }
-    .appbar-title { font-weight: 700; letter-spacing: 0.5px; }
-    .spacer { flex: 1; }
-
-    /* Cards and lists */
-    .card {
-      background: rgba(17, 24, 39, 0.7);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px;
-      margin-top: 16px;
-    }
-    .list { display: grid; gap: 12px; }
-    .row {
-      display: flex; align-items: center; gap: 8px;
-      justify-content: space-between;
-      background: #0a1220;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px;
-    }
-    .row-left { display: flex; align-items: center; gap: 10px; }
-    .row-actions { display: flex; gap: 8px; }
-
-    .danger { color: #fecaca; border-color: #7f1d1d; }
-    .success { color: #d1fae5; border-color: #064e3b; }
-    .primary { color: #a5f3fc; border-color: #064e3b; }
-
-    /* Note editor */
-    .toolbar {
-      display: flex; flex-wrap: wrap; gap: 8px;
-      background: var(--toolbar);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 8px;
-    }
-    .dark-btn {
-      background: var(--dark-button);
-      border-color: #0f172a;
-      color: #e5e7eb;
-    }
-    .editor {
-      min-height: 300px;
-      background: #0a1220;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px;
-      margin-top: 12px;
-    }
-    .muted { color: var(--muted); font-size: 0.9rem; }
-    .hidden { display: none !important; }
-
-    /* Search bar */
-    .searchbar { display: flex; gap: 8px; margin-top: 8px; }
-    .searchbar input { flex: 1; }
-    .back-btn { margin-right: 8px; }
-
-    /* Footer spacing */
-    .footer-space { height: 40px; }
+    body { margin:0; font-family:sans-serif; background:#0f172a; color:#f8fafc; }
+    .hidden { display:none }
+    .appbar { display:flex; align-items:center; gap:8px; background:#111827; padding:10px; color:#fff }
+    .container { padding:16px; max-width:960px; margin:auto }
+    button { padding:8px 12px; border-radius:6px; border:1px solid #333; background:#222; color:#fff; cursor:pointer }
+    .list { display:grid; gap:8px; margin-top:12px }
+    .row { display:flex; justify-content:space-between; align-items:center; background:#1f2937; padding:8px; border-radius:6px }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px }
+    .editor { min-height:200px; background:#0a1220; padding:10px; border-radius:6px }
   </style>
 </head>
 <body>
-
-  <!-- App bar (title + back button) -->
+  <!-- Appbar -->
   <div class="appbar">
-    <button id="backButton" class="back-btn hidden">Kembali</button>
-    <div class="appbar-title">FatherStress</div>
-    <div class="spacer"></div>
-    <div id="userEmail" class="muted"></div>
+    <button id="backButton" class="hidden">Kembali</button>
+    <div>FatherStress</div>
+    <div style="flex:1"></div>
+    <div id="userEmail"></div>
   </div>
 
   <div class="container">
     <!-- Login Page -->
-    <section id="page-login" class="card">
+    <section id="page-login">
       <h2>Login</h2>
-      <p class="muted">Log masuk untuk meneruskan.</p>
-      <button id="googleLoginBtn">
-        Login dengan Google
-      </button>
+      <button id="googleLoginBtn">Login dengan Google</button>
     </section>
 
-    <!-- Home Page: Topics -->
-    <section id="page-home" class="card hidden">
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <h2>Senarai Tajuk</h2>
-        <button id="logoutBtn" class="danger">Logout</button>
+    <!-- Home Page -->
+    <section id="page-home" class="hidden">
+      <h2>Senarai Tajuk</h2>
+      <button id="logoutBtn">Logout</button>
+      <div>
+        <input id="topicSearch" placeholder="Cari tajuk">
+        <button id="addTopicBtn">Tambah Tajuk Baharu</button>
       </div>
-
-      <div class="searchbar">
-        <input id="topicSearch" type="text" placeholder="Cari tajuk (huruf/nombor/simbol pun boleh)">
-        <button id="addTopicBtn" class="success">Tambah Tajuk Baharu</button>
-      </div>
-
-      <div id="topicsList" class="list" aria-live="polite"></div>
+      <div id="topicsList" class="list"></div>
     </section>
 
-    <!-- Folder Page: Folders within a topic -->
-    <section id="page-folders" class="card hidden">
+    <!-- Folder Page -->
+    <section id="page-folders" class="hidden">
       <h2 id="foldersTitle">Folder</h2>
-
-      <div class="searchbar">
-        <input id="folderSearch" type="text" placeholder="Cari folder (huruf/nombor/simbol pun boleh)">
-        <button id="addFolderBtn" class="success">Tambah Folder Baharu</button>
+      <div>
+        <input id="folderSearch" placeholder="Cari folder">
+        <button id="addFolderBtn">Tambah Folder Baharu</button>
       </div>
-
-      <div id="foldersList" class="list" aria-live="polite"></div>
+      <div id="foldersList" class="list"></div>
     </section>
 
-    <!-- Note Page: Editor -->
-    <section id="page-notes" class="card hidden">
+    <!-- Note Page -->
+    <section id="page-notes" class="hidden">
       <h2 id="notesTitle">Nota</h2>
-
-      <!-- Toolbar -->
       <div class="toolbar">
-        <button data-cmd="bold"><strong>B</strong></button>
-        <button data-cmd="underline"><u>U</u></button>
+        <button data-cmd="bold">Bold</button>
+        <button data-cmd="underline">Underline</button>
         <button id="highlightBtn">Highlight</button>
-
-        <label class="muted">Warna perkataan:</label>
-        <input id="colorInput" type="color" value="#ffffff" style="width:auto;">
-
-        <label class="muted">Saiz teks (pt):</label>
-        <select id="fontSizeSelect" class="dark-btn" style="width:auto;">
-          <!-- 1–60 pt -->
-        </select>
+        <input id="colorInput" type="color" value="#ffffff">
+        <select id="fontSizeSelect"></select>
       </div>
-
-      <!-- Editor -->
-      <div id="noteEditor" class="editor" contenteditable="true" spellcheck="false"></div>
-      <p id="saveStatus" class="muted">Auto-save aktif.</p>
+      <div id="noteEditor" class="editor" contenteditable="true"></div>
+      <p id="saveStatus">Auto-save aktif.</p>
     </section>
-
-    <div class="footer-space"></div>
   </div>
 
-  <!-- Firebase SDKs -->
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-  <!-- Your firebase-config.js must be present in same directory -->
   <script src="firebase-config.js"></script>
 
   <script>
-    // Initialize Firestore
     const auth = firebase.auth();
     const db = firebase.firestore();
+    const current = { user:null, topicId:null, folderId:null, noteDocId:'main' };
 
-    // Basic router using hash: #login, #home, #folders/:topicId, #notes/:topicId/:folderId
-    function navigate(hash) {
-      if (!hash) hash = location.hash || '#login';
-      const pages = {
-        '#login': 'page-login',
-        '#home': 'page-home',
-        '#folders': 'page-folders',
-        '#notes': 'page-notes'
-      };
-      document.querySelectorAll('section[id^="page-"]').forEach(s => s.classList.add('hidden'));
-
-      const [base, p1, p2] = hash.split('/');
-      const pageId = pages[base] || 'page-login';
-      document.getElementById(pageId).classList.remove('hidden');
-
-      // Back button visibility (not on login/home)
-      const backBtn = document.getElementById('backButton');
-      if (base === '#folders' || base === '#notes') backBtn.classList.remove('hidden');
-      else backBtn.classList.add('hidden');
-
-      // Page-specific setup
-      if (base === '#home') {
-        renderTopics();
-      } else if (base === '#folders' && p1) {
-        current.topicId = decodeURIComponent(p1);
-        renderFolders(current.topicId);
-      } else if (base === '#notes' && p1 && p2) {
-        current.topicId = decodeURIComponent(p1);
-        current.folderId = decodeURIComponent(p2);
-        openNote(current.topicId, current.folderId);
-      }
+    // Navigasi ringkas
+    function navigate(hash){
+      document.querySelectorAll('section').forEach(s=>s.classList.add('hidden'));
+      if(hash.startsWith('#home')) document.getElementById('page-home').classList.remove('hidden');
+      else if(hash.startsWith('#folders')) document.getElementById('page-folders').classList.remove('hidden');
+      else if(hash.startsWith('#notes')) document.getElementById('page-notes').classList.remove('hidden');
+      else document.getElementById('page-login').classList.remove('hidden');
     }
+    window.addEventListener('hashchange',()=>navigate(location.hash));
 
-    window.addEventListener('hashchange', () => navigate(location.hash));
+    // Auth state
+    auth.onAuthStateChanged(user=>{
+      current.user=user;
+      document.getElementById('userEmail').textContent=user?user.email:'';
+      if(user){ location.hash='#home'; navigate('#home'); renderTopics(); } 
+      else { location.hash='#login'; navigate('#login'); }
+    });
 
-    // Global state
-    const current = { user: null, topicId: null, folderId: null, noteDocId: 'main' };
+    // Login/Logout
+    document.getElementById('googleLoginBtn').onclick=async()=>{
+      const provider=new firebase.auth.GoogleAuthProvider();
+      await auth.signInWithPopup(provider);
+    };
+    document.getElementById('logoutBtn').onclick=()=>auth.signOut();
 
-    // Auth state persistence
-    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    // Back button
+    document.getElementById('backButton').onclick=()=>{
+      if(location.hash.startsWith('#notes')) location.hash=`#folders/${current.topicId}`;
+      else if(location.hash.startsWith('#folders')) location.hash='#home';
+    };
 
-    auth.onAuthStateChanged(user => {
-      current.user = user;
-      document.getElementById('userEmail').textContent = user ? user.email : '';
-      if (user) {
-        if (!location.hash || location.hash === '#login') {
-          location.hash = '#home';
-        } else {
-          navigate(location.hash);
+    // Util search
+    function matchesQuery(text,q){ return !q || text.toLowerCase().includes(q.toLowerCase()); }
+
+    // Topics CRUD
+    const topicsCol=()=>db.collection('users').doc(current.user.uid).collection('topics');
+    async function renderTopics(){
+      const snap=await topicsCol().get();
+      const list=document.getElementById('topicsList'); list.innerHTML='';
+      const q=document.getElementById('topicSearch').value;
+      snap.forEach(doc=>{
+        const d=doc.data();
+        if(matchesQuery(d.title||'',q)){
+          const row=document.createElement('div'); row.className='row';
+          row.innerHTML=`<div>${d.title}</div>
+            <div>
+              <button data-open="${doc.id}">Buka</button>
+              <button data-edit="${doc.id}">Sunting</button>
+              <button data-del="${doc.id}">Padam</button>
+            </div>`;
+          list.appendChild(row);
         }
-      } else {
-        location.hash = '#login';
-        navigate('#login');
-      }
-    });
-
-    // Login with Google
-    document.getElementById('googleLoginBtn').addEventListener('click', async () => {
-      try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        await auth.signInWithPopup(provider);
-        location.hash = '#home';
-      } catch (err) {
-        alert('Login gagal: ' + err.message);
-      }
-    });
-
-    // Logout
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-      try {
-        await auth.signOut();
-        location.hash = '#login';
-      } catch (err) {
-        alert('Logout gagal: ' + err.message);
-      }
-    });
-
-    // Back button behavior
-    document.getElementById('backButton').addEventListener('click', () => {
-      const [base, p1] = (location.hash || '').split('/');
-      if (base === '#notes') {
-        location.hash = `#folders/${encodeURIComponent(current.topicId)}`;
-      } else if (base === '#folders') {
-        location.hash = '#home';
-      } else {
-        history.back();
-      }
-    });
-
-    // Utility: tolerant search (matches if query characters appear anywhere)
-    function matchesQuery(text, query) {
-      if (!query) return true;
-      const q = query.trim();
-      try {
-        const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-        return rx.test(text);
-      } catch {
-        return text.toLowerCase().includes(q.toLowerCase());
-      }
-    }
-
-    // Topics CRUD under users/{uid}/topics
-    const topicsCol = () => db.collection('users').doc(current.user.uid).collection('topics');
-
-    async function renderTopics() {
-      const listEl = document.getElementById('topicsList');
-      listEl.innerHTML = '<div class="muted">Memuatkan...</div>';
-
-      const snap = await topicsCol().orderBy('createdAt', 'asc').get();
-      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-      const q = document.getElementById('topicSearch').value || '';
-      const filtered = items.filter(it => matchesQuery(it.title || '', q));
-
-      listEl.innerHTML = '';
-      filtered.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'row';
-        row.innerHTML = `
-          <div class="row-left">
-            <button class="success" data-open="${item.id}">Buka</button>
-            <div>${item.title || '(Tiada tajuk)'}</div>
-          </div>
-          <div class="row-actions">
-            <button class="primary" data-edit="${item.id}">Sunting</button>
-            <button class="danger" data-del="${item.id}">Padam</button>
-          </div>
-        `;
-        listEl.appendChild(row);
       });
-
-      listEl.querySelectorAll('[data-open]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          location.hash = `#folders/${encodeURIComponent(btn.getAttribute('data-open'))}`;
-        });
+      // Event listeners
+      list.querySelectorAll('[data-open]').forEach(btn=>btn.onclick=()=>{location.hash=`#folders/${btn.dataset.open}`;});
+      list.querySelectorAll('[data-edit]').forEach(btn=>btn.onclick=async()=>{
+        const id=btn.dataset.edit; const doc=await topicsCol().doc(id).get();
+        const title=prompt('Sunting tajuk:',doc.data().title||'');
+        if(title&&title.trim()!==''){ await topicsCol().doc(id).update({title,updatedAt:Date.now()}); renderTopics(); }
       });
-
-      listEl.querySelectorAll('[data-edit]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.getAttribute('data-edit');
-          const doc = await topicsCol().doc(id).get();
-          const curr = doc.data();
-          const title = prompt('Sunting tajuk:', curr?.title || '');
-          if (title !== null) {
-            await topicsCol().doc(id).update({ title, updatedAt: Date.now() });
-            renderTopics();
-          }
-        });
-      });
-
-      listEl.querySelectorAll('[data-del]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.getAttribute('data-del');
-          if (confirm('Padam tajuk ini?')) {
-            await topicsCol().doc(id).delete();
-            renderTopics();
-          }
-        });
+      list.querySelectorAll('[data-del]').forEach(btn=>btn.onclick=async()=>{
+        if(confirm('Padam tajuk?')){ await topicsCol().doc(btn.dataset.del).delete(); renderTopics(); }
       });
     }
+    document.getElementById('addTopicBtn').onclick=async()=>{
+      const title=prompt('Masukkan tajuk baharu:');
+      if(title){ await topicsCol().add({title,createdAt:Date.now()}); renderTopics(); }
+    };
+    document.getElementById('topicSearch').oninput=renderTopics;
+  </script>
 
-    document.getElementById('addTopicBtn').addEventListener('click', async () => {
-      const title = prompt('Masukkan tajuk baharu:');
-      if (!title) return;
-      await topicsCol().add({ title, createdAt: Date.now(), updatedAt: Date.now() });
-      renderTopics();
-    });
-
-    document.getElementById('topicSearch').addEventListener('input', () => renderTopics());
-
-    // Folders CRUD under users/{uid}/topics/{topicId}/folders
-    const foldersCol = (topicId) => topicsCol().doc(topicId).collection('folders');
-
-    async function renderFolders(topicId) {
-      document.getElementById('foldersTitle').textContent = 'Folder — ' + topicId;
-      const listEl = document.getElementById('foldersList');
-      listEl.innerHTML = '<div class="muted">Memuatkan...</div>';
-
-      const snap = await foldersCol(topicId).orderBy('createdAt', 'asc').get();
-      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-      const q = document.getElementById('folderSearch').value || '';
-      const filtered = items.filter(it => matchesQuery(it.title || '', q));
-
-      listEl.innerHTML = '';
-      filtered.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'row';
-        row.innerHTML = `
-          <div class="row-left">
-            <button class="success" data-open="${item.id}">Buka</button>
-            <div>${item.title || '(Tiada nama folder)'}</div>
-          </div>
-          <div class="row-actions">
-            <button class="primary" data-edit="${item.id}">Sunting</button>
-            <button class="danger" data-del="${item.id}">Padam</button>
-          </div>
-        `;
-        listEl.appendChild(row);
+    // Folders
+    const foldersCol=(tid)=>topicsCol().doc(tid).collection('folders');
+    async function renderFolders(tid){
+      current.topicId=tid;
+      const snap=await foldersCol(tid).get();
+      const list=document.getElementById('foldersList'); list.innerHTML='';
+      const q=document.getElementById('folderSearch').value;
+      snap.forEach(doc=>{
+        const d=doc.data();
+        if(matchesQuery(d.title||'',q)){
+          const row=document.createElement('div'); row.className='row';
+          row.innerHTML=`<div>${d.title}</div>
+            <div>
+              <button data-open="${doc.id}">Buka</button>
+              <button data-edit="${doc.id}">Sunting</button>
+              <button data-del="${doc.id}">Padam</button>
+            </div>`;
+          list.appendChild(row);
+        }
       });
-
-      listEl.querySelectorAll('[data-open]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          location.hash = `#notes/${encodeURIComponent(topicId)}/${encodeURIComponent(btn.getAttribute('data-open'))}`;
-        });
+      list.querySelectorAll('[data-open]').forEach(btn=>btn.onclick=()=>{location.hash=`#notes/${tid}/${btn.dataset.open}`;});
+      list.querySelectorAll('[data-edit]').forEach(btn=>btn.onclick=async()=>{
+        const id=btn.dataset.edit; const doc=await foldersCol(tid).doc(id).get();
+        const title=prompt('Sunting folder:',doc.data().title||'');
+        if(title&&title.trim()!==''){ await foldersCol(tid).doc(id).update({title,updatedAt:Date.now()}); renderFolders(tid); }
       });
-
-      listEl.querySelectorAll('[data-edit]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.getAttribute('data-edit');
-          const doc = await foldersCol(topicId).doc(id).get();
-          const curr = doc.data();
-          const title = prompt('Sunting nama folder:', curr?.title || '');
-          if (title !== null) {
-            await foldersCol(topicId).doc(id).update({ title, updatedAt: Date.now() });
-            renderFolders(topicId);
-          }
-        });
-      });
-
-      listEl.querySelectorAll('[data-del]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.getAttribute('data-del');
-          if (confirm('Padam folder ini?')) {
-            await foldersCol(topicId).doc(id).delete();
-            renderFolders(topicId);
-          }
-        });
+      list.querySelectorAll('[data-del]').forEach(btn=>btn.onclick=async()=>{
+        if(confirm('Padam folder?')){ await foldersCol(tid).doc(btn.dataset.del).delete(); renderFolders(tid); }
       });
     }
+    document.getElementById('addFolderBtn').onclick=async()=>{
+      const title=prompt('Masukkan folder baharu:');
+      if(title){ await foldersCol(current.topicId).add({title,createdAt:Date.now()}); renderFolders(current.topicId); }
+    };
+    document.getElementById('folderSearch').oninput=()=>renderFolders(current.topicId);
 
-    document.getElementById('addFolderBtn').addEventListener('click', async () => {
-      const title = prompt('Masukkan folder baharu:');
-      if (!title || !current.topicId) return;
-      await foldersCol(current.topicId).add({ title, createdAt: Date.now(), updatedAt: Date.now() });
-      renderFolders(current.topicId);
+    // Notes
+    const noteDoc=(tid,fid,nid='main')=>foldersCol(tid).doc(fid).collection('notes').doc(nid);
+
+    // Populate font size options
+    (()=>{ const sel=document.getElementById('fontSizeSelect'); for(let i=1;i<=60;i++){ const opt=document.createElement('option'); opt.value=i; opt.textContent=i+'pt'; sel.appendChild(opt);} })();
+
+    // Toolbar actions
+    document.querySelectorAll('.toolbar [data-cmd]').forEach(btn=>{
+      btn.onclick=()=>{ document.execCommand(btn.dataset.cmd,false,null); noteChanged(); };
     });
-
-    document.getElementById('folderSearch').addEventListener('input', () => {
-      if (current.topicId) renderFolders(current.topicId);
-    });
-
-    // Notes under users/{uid}/topics/{topicId}/folders/{folderId}/notes/{noteDocId}
-    const noteDoc = (topicId, folderId, noteId='main') =>
-      foldersCol(topicId).doc(folderId).collection('notes').doc(noteId);
-
-    // Populate font size options (1–60 pt)
-    (() => {
-      const sel = document.getElementById('fontSizeSelect');
-      for (let i = 1; i <= 60; i++) {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = i + 'pt';
-        sel.appendChild(opt);
-      }
-    })();
-
-    // Editor commands
-    document.querySelectorAll('.toolbar [data-cmd]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const cmd = btn.getAttribute('data-cmd');
-        document.execCommand(cmd, false, null);
-        noteChanged();
-      });
-    });
-
-    document.getElementById('highlightBtn').addEventListener('click', () => {
-      document.execCommand('backColor', false, '#ffff00');
+    document.getElementById('highlightBtn').onclick=()=>{ document.execCommand('backColor',false,'#ffff00'); noteChanged(); };
+    document.getElementById('colorInput').oninput=e=>{ document.execCommand('foreColor',false,e.target.value); noteChanged(); };
+    document.getElementById('fontSizeSelect').onchange=e=>{
+      const sizePt=e.target.value+'pt';
+      const sel=window.getSelection(); if(sel.rangeCount){ const range=sel.getRangeAt(0); const span=document.createElement('span'); span.style.fontSize=sizePt; range.surroundContents(span); }
       noteChanged();
-    });
+    };
 
-    document.getElementById('colorInput').addEventListener('input', (e) => {
-      document.execCommand('foreColor', false, e.target.value);
-      noteChanged();
-    });
+    // Autosave
+    const editor=document.getElementById('noteEditor');
+    const saveStatus=document.getElementById('saveStatus');
+    let saveTimer=null;
+    function noteChanged(){ clearTimeout(saveTimer); saveStatus.textContent='Menyimpan...'; saveTimer=setTimeout(saveNote,800); }
+    editor.oninput=noteChanged;
 
-    document.getElementById('fontSizeSelect').addEventListener('change', (e) => {
-      // Apply inline style using a wrap span
-      const sizePt = e.target.value + 'pt';
-      applyInlineStyle({ fontSize: sizePt });
-      noteChanged();
-    });
-
-    function applyInlineStyle(styleObj) {
-      const sel = window.getSelection();
-      if (!sel.rangeCount) return;
-      const range = sel.getRangeAt(0);
-      const span = document.createElement('span');
-      Object.assign(span.style, styleObj);
-      range.surroundContents(span);
+    async function openNote(tid,fid){
+      current.folderId=fid; current.noteDocId='main';
+      document.getElementById('notesTitle').textContent='Nota — '+fid;
+      editor.innerHTML=''; saveStatus.textContent='Auto-save aktif.';
+      const doc=await noteDoc(tid,fid,current.noteDocId).get();
+      if(doc.exists){ editor.innerHTML=doc.data().content||''; }
+      else { await noteDoc(tid,fid,current.noteDocId).set({content:'',createdAt:Date.now()}); }
+    }
+    async function saveNote(){
+      if(!current.user||!current.topicId||!current.folderId) return;
+      const html=editor.innerHTML;
+      try{ await noteDoc(current.topicId,current.folderId,current.noteDocId).set({content:html,updatedAt:Date.now()},{merge:true});
+        saveStatus.textContent='Disimpan automatik.'; }
+      catch(e){ saveStatus.textContent='Simpan gagal.'; console.error(e); }
     }
 
-    // Editor autosave
-    const editor = document.getElementById('noteEditor');
-    const saveStatus = document.getElementById('saveStatus');
-    let saveTimer = null;
-    function noteChanged() {
-      clearTimeout(saveTimer);
-      saveStatus.textContent = 'Menyimpan...';
-      saveTimer = setTimeout(saveNote, 800);
-    }
-    editor.addEventListener('input', noteChanged);
-
-    async function openNote(topicId, folderId) {
-      document.getElementById('notesTitle').textContent = `Nota — ${folderId}`;
-      editor.innerHTML = '';
-      saveStatus.textContent = 'Auto-save aktif.';
-      current.noteDocId = 'main';
-      const doc = await noteDoc(topicId, folderId, current.noteDocId).get();
-      if (doc.exists) {
-        const data = doc.data();
-        editor.innerHTML = data.content || '';
-      } else {
-        await noteDoc(topicId, folderId, current.noteDocId).set({
-          content: '',
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        });
-      }
-    }
-
-    async function saveNote() {
-      if (!current.user || !current.topicId || !current.folderId) return;
-      const html = editor.innerHTML;
-      try {
-        await noteDoc(current.topicId, current.folderId, current.noteDocId).set({
-          content: html,
-          updatedAt: Date.now()
-        }, { merge: true });
-        saveStatus.textContent = 'Disimpan automatik.';
-      } catch (e) {
-        saveStatus.textContent = 'Simpan gagal. Cuba lagi.';
-        console.error(e);
-      }
-    }
-
-    // Initial navigation
-    navigate(location.hash);
-
-    // Register service worker after window load
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js').catch(console.error);
-      });
-    }
+    // Service worker register
+    if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('service-worker.js'); }); }
   </script>
 </body>
 </html>
+
+
