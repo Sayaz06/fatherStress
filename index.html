@@ -117,14 +117,18 @@
 
     // Topics CRUD
     const topicsCol=()=>db.collection('users').doc(current.user.uid).collection('topics');
+
     async function renderTopics(){
       const snap=await topicsCol().get();
-      const list=document.getElementById('topicsList'); list.innerHTML='';
+      const list=document.getElementById('topicsList'); 
+      list.innerHTML='';
       const q=document.getElementById('topicSearch').value;
+
       snap.forEach(doc=>{
         const d=doc.data();
         if(matchesQuery(d.title||'',q)){
-          const row=document.createElement('div'); row.className='row';
+          const row=document.createElement('div'); 
+          row.className='row';
           row.innerHTML=`<div>${d.title}</div>
             <div>
               <button data-open="${doc.id}">Buka</button>
@@ -134,25 +138,45 @@
           list.appendChild(row);
         }
       });
+
       // Event listeners
-      list.querySelectorAll('[data-open]').forEach(btn=>btn.onclick=()=>{location.hash=`#folders/${btn.dataset.open}`;});
-      list.querySelectorAll('[data-edit]').forEach(btn=>btn.onclick=async()=>{
-        const id=btn.dataset.edit; const doc=await topicsCol().doc(id).get();
-        const title=prompt('Sunting tajuk:',doc.data().title||'');
-        if(title&&title.trim()!==''){ await topicsCol().doc(id).update({title,updatedAt:Date.now()}); renderTopics(); }
+      list.querySelectorAll('[data-open]').forEach(btn=>{
+        btn.onclick=()=>{location.hash=`#folders/${btn.dataset.open}`;}
       });
-      list.querySelectorAll('[data-del]').forEach(btn=>btn.onclick=async()=>{
-        if(confirm('Padam tajuk?')){ await topicsCol().doc(btn.dataset.del).delete(); renderTopics(); }
+
+      list.querySelectorAll('[data-edit]').forEach(btn=>{
+        btn.onclick=async()=>{
+          const id=btn.dataset.edit; 
+          const doc=await topicsCol().doc(id).get();
+          const title=prompt('Sunting tajuk:',doc.data().title||'');
+          if(title&&title.trim()!==''){ 
+            await topicsCol().doc(id).update({title,updatedAt:Date.now()}); 
+            renderTopics(); 
+          }
+        }
+      });
+
+      list.querySelectorAll('[data-del]').forEach(btn=>{
+        btn.onclick=async()=>{
+          if(confirm('Padam tajuk?')){ 
+            await topicsCol().doc(btn.dataset.del).delete(); 
+            renderTopics(); 
+          }
+        }
       });
     }
+
     document.getElementById('addTopicBtn').onclick=async()=>{
       const title=prompt('Masukkan tajuk baharu:');
-      if(title){ await topicsCol().add({title,createdAt:Date.now()}); renderTopics(); }
+      if(title){ 
+        await topicsCol().add({title,createdAt:Date.now()}); 
+        renderTopics(); 
+      }
     };
-    document.getElementById('topicSearch').oninput=renderTopics;
-  </script>
 
-    // Folders
+    document.getElementById('topicSearch').oninput=renderTopics;
+
+    // Folders CRUD
     const foldersCol=(tid)=>topicsCol().doc(tid).collection('folders');
     async function renderFolders(tid){
       current.topicId=tid;
@@ -201,7 +225,13 @@
     document.getElementById('colorInput').oninput=e=>{ document.execCommand('foreColor',false,e.target.value); noteChanged(); };
     document.getElementById('fontSizeSelect').onchange=e=>{
       const sizePt=e.target.value+'pt';
-      const sel=window.getSelection(); if(sel.rangeCount){ const range=sel.getRangeAt(0); const span=document.createElement('span'); span.style.fontSize=sizePt; range.surroundContents(span); }
+      const sel=window.getSelection(); 
+      if(sel.rangeCount){ 
+        const range=sel.getRangeAt(0); 
+        const span=document.createElement('span'); 
+        span.style.fontSize=sizePt; 
+        range.surroundContents(span); 
+      }
       noteChanged();
     };
 
@@ -209,7 +239,11 @@
     const editor=document.getElementById('noteEditor');
     const saveStatus=document.getElementById('saveStatus');
     let saveTimer=null;
-    function noteChanged(){ clearTimeout(saveTimer); saveStatus.textContent='Menyimpan...'; saveTimer=setTimeout(saveNote,800); }
+    function noteChanged(){ 
+      clearTimeout(saveTimer); 
+      saveStatus.textContent='Menyimpan...'; 
+      saveTimer=setTimeout(saveNote,800); 
+    }
     editor.oninput=noteChanged;
 
     async function openNote(tid,fid){
@@ -223,15 +257,20 @@
     async function saveNote(){
       if(!current.user||!current.topicId||!current.folderId) return;
       const html=editor.innerHTML;
-      try{ await noteDoc(current.topicId,current.folderId,current.noteDocId).set({content:html,updatedAt:Date.now()},{merge:true});
-        saveStatus.textContent='Disimpan automatik.'; }
-      catch(e){ saveStatus.textContent='Simpan gagal.'; console.error(e); }
+      try{ 
+        await noteDoc(current.topicId,current.folderId,current.noteDocId).set({content:html,updatedAt:Date.now()},{merge:true});
+        saveStatus.textContent='Disimpan automatik.'; 
+      }
+      catch(e){ 
+        saveStatus.textContent='Simpan gagal.'; 
+        console.error(e); 
+      }
     }
 
     // Service worker register
-    if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('service-worker.js'); }); }
+    if('serviceWorker' in navigator){ 
+      window.addEventListener('load',()=>{ navigator.serviceWorker.register('service-worker.js'); }); 
+    }
   </script>
 </body>
 </html>
-
-
