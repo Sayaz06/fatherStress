@@ -4,8 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#111827" />
-  <link rel="manifest" href="manifest.json" />
-  <title>FatherStress</title>
+  <title>Original Wan-Law</title>
   <style>
     :root {
       --bg: #0b0f17; --card: #121826; --text: #e5e7eb;
@@ -14,616 +13,351 @@
     body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto; background:var(--bg); color:var(--text); }
     .container { max-width:860px; margin:0 auto; padding:16px; }
     .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
-    .center-col { display:flex; flex-direction:column; align-items:center; }
     .card-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
     .card-title { font-weight:700; font-size:18px; }
     .card-subtitle { font-size:12px; color:var(--muted); }
     .divider { height:1px; background:var(--border); margin:12px 0; }
-    .section { display:grid; gap:8px; }
-    .section-note { font-size:12px; color:var(--muted); }
-    .section-title { font-weight:600; font-size:13px; margin-top:6px; }
-    .list-item { border:1px solid var(--border); border-radius:10px; padding:10px; margin-bottom:8px; }
-    .list-item-header { display:flex; justify-content:space-between; align-items:center; gap:8px; }
-    .list-item-title { font-weight:600; }
-    .list-item-actions { display:flex; gap:6px; }
-    .list-item-meta { font-size:12px; color:var(--muted); margin-top:4px; }
-    .scroll-y { overflow-y:auto; }
     .btn { border:1px solid var(--border); background:transparent; color:var(--text); padding:8px 12px; border-radius:8px; cursor:pointer; }
     .btn:hover { border-color:var(--primary); color:var(--primary); }
     .btn-full { width:100%; } .btn-pill { border-radius:999px; }
-    .btn-ghost { background:transparent; } .btn-sm { padding:6px 10px; font-size:12px; }
     .btn-xs { padding:2px 6px; font-size:10px; }
-    input, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:#0f1523; color:var(--text); }
-    textarea { min-height:120px; }
-    .error-banner { background:#1d2433; border:1px solid #ef4444; color:#fecaca; padding:10px; border-radius:8px; }
+    .section { display:grid; gap:8px; }
+    .list-item { border:1px solid var(--border); border-radius:10px; padding:10px; margin-bottom:8px; cursor:pointer; }
+    .toolbar { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+    .toolbar button { font-size:12px; }
+    .editor { min-height:240px; border:1px solid var(--border); border-radius:8px; padding:10px; background:#0f1523; color:var(--text); }
     .mt-2 { margin-top:8px; } .mt-3 { margin-top:12px; }
   </style>
 </head>
 <body>
   <div id="app" class="container"></div>
 
-  <!-- Firebase SDK -->
+  <!-- Firebase SDK (compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
 
-  <script>
-    const spaRoot=document.getElementById("app");
-    const APP_STATE={route:"login",user:null,fatherStress:{topicId:null,folderId:null,codeId:null,bundleId:null}};
-    const db=firebase.firestore();
+    <script>
+    // State & helpers
+    const spaRoot = document.getElementById("app");
+    const APP_STATE = { route: "login", user: null, wanlaw: { topicId: null, folderId: null, noteId: null } };
+    const db = firebase.firestore();
 
-    function el(tag,opts={}){const n=document.createElement(tag);
-      if(opts.className) n.className=opts.className;
-      if(opts.text) n.textContent=opts.text;
-      if(opts.attrs) Object.entries(opts.attrs).forEach(([k,v])=>n.setAttribute(k,v));
-      if(opts.on) Object.entries(opts.on).forEach(([k,fn])=>n.addEventListener(k,fn));
-      return n;}
-
-    function userDoc(){return db.collection("users").doc(APP_STATE.user.uid);}
-    function fsTopicsCol(){return userDoc().collection("fatherstress_topics");}
-    function fsFoldersCol(tid){return fsTopicsCol().doc(tid).collection("folders");}
-    function fsCodesCol(tid,fid){return fsFoldersCol(tid).doc(fid).collection("codes");}
-    function fsBundlesCol(tid,fid,cid){return fsCodesCol(tid,fid).doc(cid).collection("bundles");}
-
-    function setRoute(r){APP_STATE.route=r;render();}
-    function render(){if(!APP_STATE.user) return renderLogin();
-      switch(APP_STATE.route){
-        case "home":return renderHome();
-        case "fsRoot":return renderFsRoot();
-        case "fsFolders":return renderFsFolders();
-        case "fsCodes":return renderFsCodes();
-        case "fsBundles":return renderFsBundles();
-        case "fsBundleDetail":return renderFsBundleDetail();
-        default:return renderHome();
-      }}
-
-// ====== Login Page (Anonymous + Google) ======
-async function renderLogin(){
-  const card = el("div",{className:"card center-col"});
-
-  const header = el("div",{className:"card-header"});
-  header.appendChild(el("div",{className:"card-title",text:"FatherStress"}));
-  header.appendChild(el("div",{className:"card-subtitle",text:"Sign in to continue"}));
-  card.appendChild(header);
-  card.appendChild(el("div",{className:"divider"}));
-
-  // Anonymous Login
-  const btnAnon = el("button",{className:"btn btn-full btn-pill",text:"Masuk (Anonymous)"});
-  btnAnon.addEventListener("click",async()=>{
-    await firebase.auth().signInAnonymously();
-    firebase.auth().onAuthStateChanged(u=>{
-      APP_STATE.user = u;
-      setRoute("home");
-    });
-  });
-  card.appendChild(btnAnon);
-
-  // Google Login
-  const btnGoogle = el("button",{className:"btn btn-full btn-pill mt-2",text:"Login dengan Google"});
-  btnGoogle.addEventListener("click",async()=>{
-    const provider = new firebase.auth.GoogleAuthProvider();
-    try {
-      const result = await firebase.auth().signInWithPopup(provider);
-      APP_STATE.user = result.user;
-      setRoute("home");
-    } catch (err) {
-      alert("Gagal login dengan Google: " + err.message);
+    function el(tag, opts = {}) {
+      const n = document.createElement(tag);
+      if (opts.className) n.className = opts.className;
+      if (opts.text) n.textContent = opts.text;
+      if (opts.attrs) Object.entries(opts.attrs).forEach(([k, v]) => n.setAttribute(k, v));
+      if (opts.on) Object.entries(opts.on).forEach(([k, fn]) => n.addEventListener(k, fn));
+      return n;
     }
-  });
-  card.appendChild(btnGoogle);
 
-  spaRoot.innerHTML = "";
-  spaRoot.appendChild(card);
-}
+    function userDoc() { return db.collection("users").doc(APP_STATE.user.uid); }
+    function wanlawTopics() { return userDoc().collection("wanlaw_topics"); }
+    function wanlawFolders(tid) { return wanlawTopics().doc(tid).collection("folders"); }
+    function wanlawNotes(tid, fid) { return wanlawFolders(tid).doc(fid).collection("notes"); }
 
+    function setRoute(r) { APP_STATE.route = r; render(); }
+    function render() {
+      if (!APP_STATE.user) return renderLogin();
+      switch (APP_STATE.route) {
+        case "home": return renderHome();
+        case "folders": return renderFolders();
+        case "note": return renderNote();
+        default: return renderHome();
+      }
+    }
 
-// ====== Home Page ======
-    function renderHome(){
-      const card = el("div",{className:"card"});
+    // Login page: Email + Google
+    function renderLogin() {
+      const card = el("div", { className: "card" });
+      const header = el("div", { className: "card-header" });
+      header.appendChild(el("div", { className: "card-title", text: "Login ke Original Wan-Law" }));
+      card.appendChild(header);
+      card.appendChild(el("div", { className: "divider" }));
 
-      const header = el("div",{className:"card-header"});
-      header.appendChild(el("div",{className:"card-title",text:"Pilihan Utama"}));
-      
-      // Tambah butang Logout di header
-      const btnLogout = el("button", {
-        className: "btn btn-xs", 
-        text: "Logout",
-        on: {
-          click: async () => {
-            if(confirm("Log keluar?")) {
-              await firebase.auth().signOut();
-              APP_STATE.user = null;
-              setRoute("login");
-            }
-          }
-        }
+      const emailInput = el("input", { attrs: { type: "email", placeholder: "Masukkan email" } });
+      const btnEmail = el("button", { className: "btn btn-full btn-pill mt-2", text: "Login dengan Email" });
+      btnEmail.addEventListener("click", async () => {
+        try {
+          const email = emailInput.value;
+          const pw = "default123"; // boleh tukar ke password sebenar
+          await firebase.auth().signInWithEmailAndPassword(email, pw).catch(async () => {
+            await firebase.auth().createUserWithEmailAndPassword(email, pw);
+          });
+        } catch (err) { alert("Gagal login email: " + err.message); }
       });
+
+      const btnGoogle = el("button", { className: "btn btn-full btn-pill mt-2", text: "Login dengan Google" });
+      btnGoogle.addEventListener("click", async () => {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        try { await firebase.auth().signInWithPopup(provider); }
+        catch (err) { alert("Gagal login Google: " + err.message); }
+      });
+
+      card.appendChild(emailInput);
+      card.appendChild(btnEmail);
+      card.appendChild(btnGoogle);
+
+      spaRoot.innerHTML = "";
+      spaRoot.appendChild(card);
+    }
+
+    async function renderHome() {
+      const card = el("div", { className: "card" });
+
+      const header = el("div", { className: "card-header" });
+      header.appendChild(el("div", { className: "card-title", text: "Original Wan-Law" }));
+      const btnLogout = el("button", { className: "btn btn-xs", text: "Logout", on: { click: async () => { await firebase.auth().signOut(); } } });
       btnLogout.style.color = "#fecaca";
       header.appendChild(btnLogout);
-
       card.appendChild(header);
-      card.appendChild(el("div",{className:"divider"}));
+      card.appendChild(el("div", { className: "divider" }));
 
-      const section = el("div",{className:"section"});
-      const btnFs = el("button",{className:"btn btn-full btn-pill",text:"FatherStress Modul"});
-      btnFs.addEventListener("click",()=>setRoute("fsRoot"));
-
-      section.appendChild(btnFs);
-      card.appendChild(section);
-
-      spaRoot.innerHTML = "";
-      spaRoot.appendChild(card);
-    }
-
-
-    // ====== Root Page FatherStress ======
-    async function renderFsRoot(){
-      const card = el("div",{className:"card"});
-
-      const header = el("div",{className:"card-header"});
-      header.appendChild(el("div",{className:"card-title",text:"FatherStress"}));
-      header.appendChild(el("div",{className:"card-subtitle",text:"Catat idea baharu"}));
-      card.appendChild(header);
-      card.appendChild(el("div",{className:"divider"}));
-
-      const searchInput = el("input",{attrs:{type:"search",placeholder:"Cari Tajuk Law..."}});
-      const addBtn = el("button",{className:"btn btn-full mt-2",text:"Tambah Tajuk Law Baharu"});
-      const listContainer = el("div",{className:"section scroll-y",style:"max-height:60vh;"});
-
-      card.appendChild(searchInput);
+      const addBtn = el("button", { className: "btn btn-full btn-pill", text: "Tambah Tajuk Baharu" });
+      const list = el("div", { className: "section" });
       card.appendChild(addBtn);
-      card.appendChild(el("div",{className:"divider"}));
-      card.appendChild(listContainer);
+      card.appendChild(list);
 
       spaRoot.innerHTML = "";
       spaRoot.appendChild(card);
 
-      // Tambah tajuk baharu
-      addBtn.addEventListener("click",async()=>{
-        const name = prompt("Nama Tajuk Law:");
-        if(!name) return;
-        await fsTopicsCol().add({name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      addBtn.addEventListener("click", async () => {
+        const name = prompt("Nama Tajuk:");
+        if (!name) return;
+        await wanlawTopics().add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         loadTopics();
       });
 
-      // Load senarai tajuk
-      async function loadTopics(){
-        listContainer.innerHTML = "";
-        const snap = await fsTopicsCol().orderBy("createdAt","asc").get();
-        if(snap.empty){
-          listContainer.appendChild(el("div",{className:"text-xs muted",text:"Tiada tajuk. Tambah tajuk baharu."}));
+      async function loadTopics() {
+        list.innerHTML = "";
+        const snap = await wanlawTopics().orderBy("createdAt", "desc").get();
+        if (snap.empty) {
+          list.appendChild(el("div", { className: "card-subtitle", text: "Tiada tajuk. Tambah tajuk baharu." }));
           return;
         }
-        snap.forEach(d=>{
-          const topic={id:d.id,...d.data()};
-          const item=el("div",{className:"list-item"});
-          const header=el("div",{className:"list-item-header"});
-          header.appendChild(el("div",{className:"list-item-title",text:topic.name}));
-          const actions=el("div",{className:"list-item-actions"});
-          const btnEdit=el("button",{className:"btn btn-xs btn-ghost",text:"Sunting"});
-          const btnDelete=el("button",{className:"btn btn-xs btn-ghost",text:"Padam"});
-          btnDelete.style.color="#fecaca";
+        snap.forEach(d => {
+          const topic = { id: d.id, ...d.data() };
+          const item = el("div", { className: "list-item" });
+
+          const row = el("div", { className: "card-header" });
+          row.appendChild(el("div", { className: "card-title", text: topic.name }));
+
+          const actions = el("div");
+          const btnEdit = el("button", { className: "btn btn-xs", text: "Sunting" });
+          const btnDelete = el("button", { className: "btn btn-xs", text: "Padam" }); btnDelete.style.color = "#fecaca";
           actions.appendChild(btnEdit); actions.appendChild(btnDelete);
-          header.appendChild(actions); item.appendChild(header);
+          row.appendChild(actions);
+          item.appendChild(row);
 
-          const meta=el("div",{className:"list-item-meta"});
-          meta.appendChild(el("span",{text:"Folder"}));
-          item.appendChild(meta);
-
-          // Klik → masuk ke Folder Page
-          item.addEventListener("click",(e)=>{
-            if(e.target===btnEdit||e.target===btnDelete) return;
-            APP_STATE.fatherStress.topicId=topic.id;
-            setRoute("fsFolders");
+          item.addEventListener("click", (e) => {
+            if (e.target === btnEdit || e.target === btnDelete) return;
+            APP_STATE.wanlaw.topicId = topic.id;
+            setRoute("folders");
           });
 
-          // Edit
-          btnEdit.addEventListener("click",async(e)=>{
+          btnEdit.addEventListener("click", async (e) => {
             e.stopPropagation();
-            const newName=prompt("Nama baru:",topic.name);
-            if(!newName) return;
-            await fsTopicsCol().doc(topic.id).update({name:newName});
+            const newName = prompt("Nama baru:", topic.name);
+            if (!newName) return;
+            await wanlawTopics().doc(topic.id).update({ name: newName });
             loadTopics();
           });
 
-          // Delete
-          btnDelete.addEventListener("click",async(e)=>{
+          btnDelete.addEventListener("click", async (e) => {
             e.stopPropagation();
-            if(!confirm("Padam tajuk ini?")) return;
-            await fsTopicsCol().doc(topic.id).delete();
+            if (!confirm("Padam tajuk ini?")) return;
+            await wanlawTopics().doc(topic.id).delete();
             loadTopics();
           });
 
-          listContainer.appendChild(item);
+          list.appendChild(item);
         });
       }
-
-      searchInput.addEventListener("input",()=>loadTopics());
       loadTopics();
     }
 
-    // ====== Folder Page FatherStress ======
-    async function renderFsFolders(){
-      const topicId = APP_STATE.fatherStress.topicId;
-      if(!topicId) return setRoute("fsRoot");
+      async function renderFolders() {
+      const tid = APP_STATE.wanlaw.topicId;
+      if (!tid) return setRoute("home");
 
-      const topicDoc = await fsTopicsCol().doc(topicId).get();
-      const topicName = topicDoc.exists ? topicDoc.data().name : "Tajuk Law";
+      const topicDoc = await wanlawTopics().doc(tid).get();
+      const topicName = topicDoc.exists ? topicDoc.data().name : "Original Wan-Law";
 
-      const card = el("div",{className:"card"});
+      const card = el("div", { className: "card" });
 
-      const header = el("div",{className:"card-header"});
-      header.appendChild(el("div",{className:"card-title",text:topicName}));
-      header.appendChild(el("div",{className:"card-subtitle",text:"Tambah Law — Folder Idea"}));
-      const backBtn = el("button",{className:"btn btn-sm btn-ghost",text:"Kembali"});
-      backBtn.addEventListener("click",()=>setRoute("fsRoot"));
+      const header = el("div", { className: "card-header" });
+      header.appendChild(el("div", { className: "card-title", text: topicName }));
+      const backBtn = el("button", { className: "btn btn-xs", text: "Kembali", on: { click: () => setRoute("home") } });
       header.appendChild(backBtn);
       card.appendChild(header);
-      card.appendChild(el("div",{className:"divider"}));
+      card.appendChild(el("div", { className: "divider" }));
 
-      const searchInput = el("input",{attrs:{type:"search",placeholder:"Cari folder..."}});
-      const addBtn = el("button",{className:"btn btn-full mt-2",text:"Tambah Folder Baharu"});
-      const listContainer = el("div",{className:"section scroll-y",style:"max-height:60vh;"});
-
-      card.appendChild(searchInput);
+      const addBtn = el("button", { className: "btn btn-full btn-pill", text: "Tambah Folder Baharu" });
+      const list = el("div", { className: "section" });
       card.appendChild(addBtn);
-      card.appendChild(el("div",{className:"divider"}));
-      card.appendChild(listContainer);
+      card.appendChild(list);
 
-      spaRoot.innerHTML="";
+      spaRoot.innerHTML = "";
       spaRoot.appendChild(card);
 
-      // Tambah folder
-      addBtn.addEventListener("click",async()=>{
-        const name=prompt("Nama Folder:");
-        if(!name) return;
-        await fsFoldersCol(topicId).add({name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      addBtn.addEventListener("click", async () => {
+        const name = prompt("Nama Folder:");
+        if (!name) return;
+        await wanlawFolders(tid).add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         loadFolders();
       });
 
-      // Load folder
-      async function loadFolders(){
-        listContainer.innerHTML="";
-        const snap=await fsFoldersCol(topicId).orderBy("createdAt","asc").get();
-        if(snap.empty){
-          listContainer.appendChild(el("div",{className:"text-xs muted",text:"Tiada folder. Tambah folder baharu."}));
+      async function loadFolders() {
+        list.innerHTML = "";
+        const snap = await wanlawFolders(tid).orderBy("createdAt", "desc").get();
+        if (snap.empty) {
+          list.appendChild(el("div", { className: "card-subtitle", text: "Tiada folder. Tambah folder baharu." }));
           return;
         }
-        snap.forEach(f=>{
-          const folder={id:f.id,...f.data()};
-          const item=el("div",{className:"list-item"});
-          const header=el("div",{className:"list-item-header"});
-          header.appendChild(el("div",{className:"list-item-title",text:folder.name}));
-          const actions=el("div",{className:"list-item-actions"});
-          const btnEdit=el("button",{className:"btn btn-xs btn-ghost",text:"Sunting"});
-          const btnDelete=el("button",{className:"btn btn-xs btn-ghost",text:"Padam"});
-          btnDelete.style.color="#fecaca";
+        snap.forEach(f => {
+          const folder = { id: f.id, ...f.data() };
+          const item = el("div", { className: "list-item" });
+
+          const row = el("div", { className: "card-header" });
+          row.appendChild(el("div", { className: "card-title", text: folder.name }));
+
+          const actions = el("div");
+          const btnEdit = el("button", { className: "btn btn-xs", text: "Sunting" });
+          const btnDelete = el("button", { className: "btn btn-xs", text: "Padam" }); btnDelete.style.color = "#fecaca";
           actions.appendChild(btnEdit); actions.appendChild(btnDelete);
-          header.appendChild(actions); item.appendChild(header);
+          row.appendChild(actions);
+          item.appendChild(row);
 
-          const meta=el("div",{className:"list-item-meta"});
-          meta.appendChild(el("span",{text:"Folder"}));
-          item.appendChild(meta);
-
-          // Klik → masuk ke Codes Page
-          item.addEventListener("click",(e)=>{
-            if(e.target===btnEdit||e.target===btnDelete) return;
-            APP_STATE.fatherStress.folderId=folder.id;
-            setRoute("fsCodes");
+          item.addEventListener("click", (e) => {
+            if (e.target === btnEdit || e.target === btnDelete) return;
+            APP_STATE.wanlaw.folderId = folder.id;
+            setRoute("note");
           });
 
-          // Edit
-          btnEdit.addEventListener("click",async(e)=>{
+          btnEdit.addEventListener("click", async (e) => {
             e.stopPropagation();
-            const newName=prompt("Nama baru:",folder.name);
-            if(!newName) return;
-            await fsFoldersCol(topicId).doc(folder.id).update({name:newName});
+            const newName = prompt("Nama baru:", folder.name);
+            if (!newName) return;
+            await wanlawFolders(tid).doc(folder.id).update({ name: newName });
             loadFolders();
           });
 
-          // Delete
-          btnDelete.addEventListener("click",async(e)=>{
+          btnDelete.addEventListener("click", async (e) => {
             e.stopPropagation();
-            if(!confirm("Padam folder ini?")) return;
-            await fsFoldersCol(topicId).doc(folder.id).delete();
+            if (!confirm("Padam folder ini?")) return;
+            await wanlawFolders(tid).doc(folder.id).delete();
             loadFolders();
           });
 
-          listContainer.appendChild(item);
+          list.appendChild(item);
         });
       }
-
-      searchInput.addEventListener("input",()=>loadFolders());
       loadFolders();
     }
 
-    // ====== Codes Page FatherStress ======
-    async function renderFsCodes(){
-      const { topicId, folderId } = APP_STATE.fatherStress;
-      if(!topicId || !folderId) return setRoute("fsRoot");
+    async function renderNote() {
+      const { topicId, folderId } = APP_STATE.wanlaw;
+      if (!topicId || !folderId) return setRoute("home");
 
-      const folderDoc = await fsFoldersCol(topicId).doc(folderId).get();
-      const folderName = folderDoc.exists ? folderDoc.data().name : "Folder";
+      // Ensure note document exists (single note per folder)
+      const notesCol = wanlawNotes(topicId, folderId);
+      let noteSnap = await notesCol.limit(1).get();
+      let noteRef;
+      if (noteSnap.empty) {
+        noteRef = await notesCol.add({
+          content: "",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        noteRef = notesCol.doc(noteSnap.docs[0].id);
+      }
 
-      const card = el("div",{className:"card"});
+      const docSnap = await noteRef.get();
+      const data = docSnap.exists ? docSnap.data() : { content: "" };
 
-      const header = el("div",{className:"card-header"});
-      header.appendChild(el("div",{className:"card-title",text:folderName}));
-      header.appendChild(el("div",{className:"card-subtitle",text:"Page Code — kumpulan untuk idea"}));
-      const backBtn = el("button",{className:"btn btn-sm btn-ghost",text:"Kembali"});
-      backBtn.addEventListener("click",()=>setRoute("fsFolders"));
+      const card = el("div", { className: "card" });
+      const header = el("div", { className: "card-header" });
+      header.appendChild(el("div", { className: "card-title", text: "Nota Folder" }));
+      const backBtn = el("button", { className: "btn btn-xs", text: "Kembali", on: { click: () => setRoute("folders") } });
       header.appendChild(backBtn);
       card.appendChild(header);
-      card.appendChild(el("div",{className:"divider"}));
+      card.appendChild(el("div", { className: "divider" }));
 
-      const searchInput = el("input",{attrs:{type:"search",placeholder:"Cari code..."}});
-      const addBtn = el("button",{className:"btn btn-full mt-2",text:"Tambah Code Baharu"});
-      const listContainer = el("div",{className:"section scroll-y",style:"max-height:60vh;"});
+      // Toolbar for formatting
+      const toolbar = el("div", { className: "toolbar" });
+      const btnBold = el("button", { className: "btn btn-xs", text: "Bold" });
+      const btnUnderline = el("button", { className: "btn btn-xs", text: "Underline" });
+      const btnHighlight = el("button", { className: "btn btn-xs", text: "Highlight" });
+      const colorInput = el("input", { attrs: { type: "color" } });
+      const emojiBtn = el("button", { className: "btn btn-xs", text: "😀 Emoji" });
 
-      card.appendChild(searchInput);
-      card.appendChild(addBtn);
-      card.appendChild(el("div",{className:"divider"}));
-      card.appendChild(listContainer);
+      toolbar.appendChild(btnBold);
+      toolbar.appendChild(btnUnderline);
+      toolbar.appendChild(btnHighlight);
+      toolbar.appendChild(colorInput);
+      toolbar.appendChild(emojiBtn);
 
-      spaRoot.innerHTML="";
-      spaRoot.appendChild(card);
+      // Editable area
+      const editor = el("div", { className: "editor", attrs: { contenteditable: "true" } });
+      editor.innerHTML = data.content || "";
 
-      // Tambah code
-      addBtn.addEventListener("click",async()=>{
-        const name=prompt("Nama Code:");
-        if(!name) return;
-        await fsCodesCol(topicId,folderId).add({name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-        loadCodes();
+      // Apply formatting commands
+      btnBold.addEventListener("click", () => document.execCommand("bold"));
+      btnUnderline.addEventListener("click", () => document.execCommand("underline"));
+      btnHighlight.addEventListener("click", () => document.execCommand("backColor", false, "#fde68a"));
+      colorInput.addEventListener("input", (e) => document.execCommand("foreColor", false, e.target.value));
+      emojiBtn.addEventListener("click", () => {
+        editor.focus();
+        document.execCommand("insertText", false, " 😀 ");
       });
 
-      // Load code
-      async function loadCodes(){
-        listContainer.innerHTML="";
-        const snap=await fsCodesCol(topicId,folderId).orderBy("createdAt","asc").get();
-        if(snap.empty){
-          listContainer.appendChild(el("div",{className:"text-xs muted",text:"Tiada code. Tambah code baharu."}));
-          return;
-        }
-        snap.forEach(c=>{
-          const code={id:c.id,...c.data()};
-          const item=el("div",{className:"list-item"});
-          const header=el("div",{className:"list-item-header"});
-          header.appendChild(el("div",{className:"list-item-title",text:code.name}));
-          const actions=el("div",{className:"list-item-actions"});
-          const btnEdit=el("button",{className:"btn btn-xs btn-ghost",text:"Sunting"});
-          const btnDelete=el("button",{className:"btn btn-xs btn-ghost",text:"Padam"});
-          btnDelete.style.color="#fecaca";
-          actions.appendChild(btnEdit); actions.appendChild(btnDelete);
-          header.appendChild(actions); item.appendChild(header);
+      card.appendChild(toolbar);
+      card.appendChild(editor);
 
-          const meta=el("div",{className:"list-item-meta"});
-          meta.appendChild(el("span",{text:"Code"}));
-          item.appendChild(meta);
-
-          // Klik → masuk ke Bundles Page
-          item.addEventListener("click",(e)=>{
-            if(e.target===btnEdit||e.target===btnDelete) return;
-            APP_STATE.fatherStress.codeId=code.id;
-            setRoute("fsBundles");
-          });
-
-          // Edit
-          btnEdit.addEventListener("click",async(e)=>{
-            e.stopPropagation();
-            const newName=prompt("Nama baru:",code.name);
-            if(!newName) return;
-            await fsCodesCol(topicId,folderId).doc(code.id).update({name:newName});
-            loadCodes();
-          });
-
-          // Delete
-          btnDelete.addEventListener("click",async(e)=>{
-            e.stopPropagation();
-            if(!confirm("Padam code ini?")) return;
-            await fsCodesCol(topicId,folderId).doc(code.id).delete();
-            loadCodes();
-          });
-
-          listContainer.appendChild(item);
-        });
-      }
-
-      searchInput.addEventListener("input",()=>loadCodes());
-      loadCodes();
-    }
-
-    // ====== Bundles Page FatherStress ======
-    async function renderFsBundles(){
-      const { topicId, folderId, codeId } = APP_STATE.fatherStress;
-      if(!topicId || !folderId || !codeId) return setRoute("fsRoot");
-
-      const codeDoc = await fsCodesCol(topicId,folderId).doc(codeId).get();
-      const codeName = codeDoc.exists ? codeDoc.data().name : "Code";
-
-      const card = el("div",{className:"card"});
-
-      const header = el("div",{className:"card-header"});
-      header.appendChild(el("div",{className:"card-title",text:codeName}));
-      header.appendChild(el("div",{className:"card-subtitle",text:'Page "Tambah bundle" — kumpulan bundle idea'}));
-      const backBtn = el("button",{className:"btn btn-sm btn-ghost",text:"Kembali"});
-      backBtn.addEventListener("click",()=>setRoute("fsCodes"));
-      header.appendChild(backBtn);
-      card.appendChild(header);
-      card.appendChild(el("div",{className:"divider"}));
-
-      const addBtn = el("button",{className:"btn btn-full",text:"Tambah bundle"});
-      const listContainer = el("div",{className:"section scroll-y",style:"max-height:60vh;"});
-
-      card.appendChild(addBtn);
-      card.appendChild(el("div",{className:"divider"}));
-      card.appendChild(listContainer);
-
-      spaRoot.innerHTML="";
-      spaRoot.appendChild(card);
-
-      // Tambah bundle
-      addBtn.addEventListener("click",async()=>{
-        const name=prompt("Nama bundle:");
-        if(!name) return;
-        await fsBundlesCol(topicId,folderId,codeId).add({
-          name,
-          ideaSpontan:"",
-          source:"",
-          estimateWhen:"",
-          note:"",
-          createdAt:firebase.firestore.FieldValue.serverTimestamp()
-        });
-        loadBundles();
-      });
-
-      // Load bundle
-      async function loadBundles(){
-        listContainer.innerHTML="";
-        const snap=await fsBundlesCol(topicId,folderId,codeId).orderBy("createdAt","asc").get();
-        if(snap.empty){
-          listContainer.appendChild(el("div",{className:"text-xs muted",text:"Tiada bundle. Tambah bundle baharu."}));
-          return;
-        }
-        snap.forEach(b=>{
-          const bundle={id:b.id,...b.data()};
-          const item=el("div",{className:"list-item"});
-          const header=el("div",{className:"list-item-header"});
-          header.appendChild(el("div",{className:"list-item-title",text:bundle.name}));
-          const actions=el("div",{className:"list-item-actions"});
-          const btnEdit=el("button",{className:"btn btn-xs btn-ghost",text:"Sunting nama"});
-          const btnDelete=el("button",{className:"btn btn-xs btn-ghost",text:"Padam"});
-          btnDelete.style.color="#fecaca";
-          actions.appendChild(btnEdit); actions.appendChild(btnDelete);
-          header.appendChild(actions); item.appendChild(header);
-
-          // Klik → masuk ke Bundle Detail
-          item.addEventListener("click",(e)=>{
-            if(e.target===btnEdit||e.target===btnDelete) return;
-            APP_STATE.fatherStress.bundleId=bundle.id;
-            setRoute("fsBundleDetail");
-          });
-
-          // Edit
-          btnEdit.addEventListener("click",async(e)=>{
-            e.stopPropagation();
-            const newName=prompt("Nama baru:",bundle.name);
-            if(!newName) return;
-            await fsBundlesCol(topicId,folderId,codeId).doc(bundle.id).update({name:newName});
-            loadBundles();
-          });
-
-          // Delete
-          btnDelete.addEventListener("click",async(e)=>{
-            e.stopPropagation();
-            if(!confirm("Padam bundle ini?")) return;
-            await fsBundlesCol(topicId,folderId,codeId).doc(bundle.id).delete();
-            loadBundles();
-          });
-
-          listContainer.appendChild(item);
-        });
-      }
-
-      loadBundles();
-    }
-
-    // ====== Bundle Detail Page FatherStress ======
-    async function renderFsBundleDetail(){
-      const { topicId, folderId, codeId, bundleId } = APP_STATE.fatherStress;
-      if(!topicId || !folderId || !codeId || !bundleId) return setRoute("fsRoot");
-
-      const docRef = fsBundlesCol(topicId,folderId,codeId).doc(bundleId);
-      const docSnap = await docRef.get();
-      if(!docSnap.exists){
-        alert("Bundle tidak ditemui.");
-        setRoute("fsBundles");
-        return;
-      }
-      const data = docSnap.data();
-
-      const card = el("div",{className:"card"});
-
-      const header = el("div",{className:"card-header"});
-      header.appendChild(el("div",{className:"card-title",text:data.name || "Bundle"}));
-      const backBtn = el("button",{className:"btn btn-sm btn-ghost",text:"Kembali"});
-      backBtn.addEventListener("click",()=>setRoute("fsBundles"));
-      header.appendChild(backBtn);
-      card.appendChild(header);
-      card.appendChild(el("div",{className:"divider"}));
-
-      const section = el("div",{className:"section"});
-
-      const ideaLabel = el("div",{className:"section-title",text:"Idea spontan"});
-      const ideaInput = el("textarea"); ideaInput.value = data.ideaSpontan || "";
-
-      const sourceLabel = el("div",{className:"section-title",text:"Tempat dapat idea spontan ini"});
-      const sourceInput = el("textarea"); sourceInput.value = data.source || "";
-
-      const whenLabel = el("div",{className:"section-title",text:"Anggaran bila untuk mewujudkan idea spontan ini"});
-      const whenInput = el("textarea"); whenInput.value = data.estimateWhen || "";
-
-      const noteLabel = el("div",{className:"section-title",text:"Nota tambahan"});
-      const noteInput = el("textarea"); noteInput.value = data.note || "";
-
-      section.appendChild(ideaLabel);
-      section.appendChild(ideaInput);
-      section.appendChild(sourceLabel);
-      section.appendChild(sourceInput);
-      section.appendChild(whenLabel);
-      section.appendChild(whenInput);
-      section.appendChild(noteLabel);
-      section.appendChild(noteInput);
-
-      const hint = el("div",{className:"section-note",text:"Perubahan disimpan automatik ke cloud (Firestore)."});
-      card.appendChild(section);
+      const hint = el("div", { className: "card-subtitle mt-2", text: "Perubahan disimpan automatik ke cloud (Firestore)." });
       card.appendChild(hint);
 
-      spaRoot.innerHTML="";
+      spaRoot.innerHTML = "";
       spaRoot.appendChild(card);
 
-      // Auto-save
-      let saveTimeout=null;
-      function scheduleSave(){
-        if(saveTimeout) clearTimeout(saveTimeout);
-        saveTimeout=setTimeout(async()=>{
-          await docRef.update({
-            ideaSpontan:ideaInput.value,
-            source:sourceInput.value,
-            estimateWhen:whenInput.value,
-            note:noteInput.value,
-            updatedAt:firebase.firestore.FieldValue.serverTimestamp()
-          });
-        },600);
+      // Auto-save (debounce)
+      let saveTimeout = null;
+      function scheduleSave() {
+        if (saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(async () => {
+          try {
+            await noteRef.update({
+              content: editor.innerHTML,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          } catch (err) {
+            alert("Gagal simpan perubahan: " + err.message);
+          }
+        }, 600);
       }
-      [ideaInput,sourceInput,whenInput,noteInput].forEach(inp=>inp.addEventListener("input",scheduleSave));
+      editor.addEventListener("input", scheduleSave);
     }
 
- // ====== Boot ======
-    // Jangan terus panggil render(), tapi dengar perubahan status auth
+    // Auth persistence and route boot
     firebase.auth().onAuthStateChanged((user) => {
+      APP_STATE.user = user || null;
       if (user) {
-        // Jika pengguna sudah login, simpan info user dan terus ke home
-        APP_STATE.user = user;
-        // Jika anda mahu kekal di route sedia ada (contoh: sedang edit bundle), 
-        // anda boleh buat logik lebih kompleks, tapi buat masa ni kita hantar ke home.
-        if(APP_STATE.route === "login") setRoute("home");
+        if (APP_STATE.route === "login") setRoute("home");
+        else render();
       } else {
-        // Jika tiada user, hantar ke login
-        APP_STATE.user = null;
-        renderLogin();
+        setRoute("login");
       }
     });
   </script>
 
   <!-- Service worker register -->
   <script>
-    if("serviceWorker" in navigator){
-      navigator.serviceWorker.register("service-worker.js");
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js", { scope: "./" });
     }
   </script>
 </body>
 </html>
-
-
 
