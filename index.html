@@ -1,277 +1,329 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ms">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>FatherStress</title>
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
+  <meta name="theme-color" content="#111827" />
+  <title>Original Wan-Law</title>
   <style>
-    body { margin:0; font-family:sans-serif; background:#0f172a; color:#f8fafc; }
-    .hidden { display:none }
-    .appbar { display:flex; align-items:center; gap:8px; background:#111827; padding:10px; color:#fff }
-    .container { padding:16px; max-width:960px; margin:auto }
-    button { padding:8px 12px; border-radius:6px; border:1px solid #333; background:#222; color:#fff; cursor:pointer }
-    .list { display:grid; gap:8px; margin-top:12px }
-    .row { display:flex; justify-content:space-between; align-items:center; background:#1f2937; padding:8px; border-radius:6px }
-    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px }
-    .editor { min-height:200px; background:#0a1220; padding:10px; border-radius:6px }
+    :root {
+      --bg: #0b0f17; --card: #121826; --text: #e5e7eb;
+      --muted: #9ca3af; --primary: #38bdf8; --danger: #fecaca; --border: #1f2937;
+    }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto; background:var(--bg); color:var(--text); }
+    .container { max-width:860px; margin:0 auto; padding:16px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
+    .card-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .card-title { font-weight:700; font-size:18px; }
+    .card-subtitle { font-size:12px; color:var(--muted); }
+    .divider { height:1px; background:var(--border); margin:12px 0; }
+    .btn { border:1px solid var(--border); background:#1e293b; color:var(--text); padding:8px 12px; border-radius:8px; cursor:pointer; }
+    .btn:hover { border-color:var(--primary); color:var(--primary); }
+    .btn-full { width:100%; } .btn-pill { border-radius:999px; }
+    .btn-xs { padding:2px 6px; font-size:10px; }
+    .section { display:grid; gap:8px; }
+    .list-item { border:1px solid var(--border); border-radius:10px; padding:10px; margin-bottom:8px; }
+    .toolbar { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+    .toolbar button { font-size:12px; background:#1e293b; color:var(--text); border:1px solid var(--border); border-radius:6px; }
+    .editor { min-height:240px; border:1px solid var(--border); border-radius:8px; padding:10px; background:#0f1523; color:var(--text); }
+    .mt-2 { margin-top:8px; } .mt-3 { margin-top:12px; }
   </style>
 </head>
 <body>
-  <!-- Appbar -->
-  <div class="appbar">
-    <button id="backButton" class="hidden">Kembali</button>
-    <div>FatherStress</div>
-    <div style="flex:1"></div>
-    <div id="userEmail"></div>
-  </div>
-
-  <div class="container">
-    <!-- Login Page -->
-    <section id="page-login">
-      <h2>Login</h2>
-      <button id="googleLoginBtn">Login dengan Google</button>
-    </section>
-
-    <!-- Home Page -->
-    <section id="page-home" class="hidden">
-      <h2>Senarai Tajuk</h2>
-      <button id="logoutBtn">Logout</button>
-      <div>
-        <input id="topicSearch" placeholder="Cari tajuk">
-        <button id="addTopicBtn">Tambah Tajuk Baharu</button>
-      </div>
-      <div id="topicsList" class="list"></div>
-    </section>
-
-    <!-- Folder Page -->
-    <section id="page-folders" class="hidden">
-      <h2 id="foldersTitle">Folder</h2>
-      <div>
-        <input id="folderSearch" placeholder="Cari folder">
-        <button id="addFolderBtn">Tambah Folder Baharu</button>
-      </div>
-      <div id="foldersList" class="list"></div>
-    </section>
-
-    <!-- Note Page -->
-    <section id="page-notes" class="hidden">
-      <h2 id="notesTitle">Nota</h2>
-      <div class="toolbar">
-        <button data-cmd="bold">Bold</button>
-        <button data-cmd="underline">Underline</button>
-        <input id="colorInput" type="color" value="#ffffff">
-        <select id="fontSizeSelect"></select>
-      </div>
-      <div id="noteEditor" class="editor" contenteditable="true"></div>
-      <p id="saveStatus">Auto-save aktif.</p>
-    </section>
-  </div>
+  <div id="app" class="container"></div>
 
   <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
 
   <script>
-    const auth = firebase.auth();
+    const spaRoot = document.getElementById("app");
+    const APP_STATE = { route: "login", user: null, wanlaw: { topicId: null, folderId: null } };
     const db = firebase.firestore();
-    const current = { user:null, topicId:null, folderId:null, noteDocId:'main' };
 
-    // Navigasi ringkas
-    function navigate(hash){
-      document.querySelectorAll('section').forEach(s=>s.classList.add('hidden'));
-      if(hash.startsWith('#home')) document.getElementById('page-home').classList.remove('hidden');
-      else if(hash.startsWith('#folders')) document.getElementById('page-folders').classList.remove('hidden');
-      else if(hash.startsWith('#notes')) document.getElementById('page-notes').classList.remove('hidden');
-      else document.getElementById('page-login').classList.remove('hidden');
+    function el(tag, opts = {}) {
+      const n = document.createElement(tag);
+      if (opts.className) n.className = opts.className;
+      if (opts.text) n.textContent = opts.text;
+      if (opts.attrs) Object.entries(opts.attrs).forEach(([k, v]) => n.setAttribute(k, v));
+      if (opts.on) Object.entries(opts.on).forEach(([k, fn]) => n.addEventListener(k, fn));
+      return n;
     }
-    window.addEventListener('hashchange',()=>navigate(location.hash));
 
-    // Auth state
-    auth.onAuthStateChanged(user=>{
-      current.user=user;
-      document.getElementById('userEmail').textContent=user?user.email:'';
-      if(user){ location.hash='#home'; navigate('#home'); renderTopics(); } 
-      else { location.hash='#login'; navigate('#login'); }
+    function userDoc() { return db.collection("users").doc(APP_STATE.user.uid); }
+    function wanlawTopics() { return userDoc().collection("wanlaw_topics"); }
+    function wanlawFolders(tid) { return wanlawTopics().doc(tid).collection("folders"); }
+    function wanlawNotes(tid,fid) { return wanlawFolders(tid).doc(fid).collection("notes"); }
+
+    function setRoute(r){APP_STATE.route=r;render();}
+    function render(){if(!APP_STATE.user) return renderLogin();
+      switch(APP_STATE.route){
+        case "home":return renderHome();
+        case "folders":return renderFolders();
+        case "note":return renderNote();
+        default:return renderHome();
+      }}
+
+    // ===== Login Page (Google only) =====
+    function renderLogin(){
+      const card=el("div",{className:"card"});
+      card.appendChild(el("div",{className:"card-title",text:"Login ke Original Wan-Law"}));
+      card.appendChild(el("div",{className:"divider"}));
+
+      const btnGoogle=el("button",{className:"btn btn-full btn-pill mt-2",text:"Login dengan Google"});
+      btnGoogle.addEventListener("click",async()=>{
+        const provider=new firebase.auth.GoogleAuthProvider();
+        try{await firebase.auth().signInWithPopup(provider);}catch(err){alert("Gagal login Google: "+err.message);}
+      });
+      card.appendChild(btnGoogle);
+
+      spaRoot.innerHTML=""; 
+      spaRoot.appendChild(card);
+    }
+
+    // ===== Home Page =====
+    async function renderHome(){
+      const card=el("div",{className:"card"});
+      const header=el("div",{className:"card-header"});
+      header.appendChild(el("div",{className:"card-title",text:"Original Wan-Law"}));
+      const btnLogout=el("button",{className:"btn btn-xs",text:"Logout",on:{click:async()=>{await firebase.auth().signOut();}}});
+      btnLogout.style.color="#fecaca"; 
+      header.appendChild(btnLogout);
+      card.appendChild(header); 
+      card.appendChild(el("div",{className:"divider"}));
+
+      const addBtn=el("button",{className:"btn btn-full btn-pill",text:"Tambah Tajuk Baharu"});
+      const list=el("div",{className:"section"});
+      card.appendChild(addBtn); 
+      card.appendChild(list);
+
+      spaRoot.innerHTML=""; 
+      spaRoot.appendChild(card);
+
+      addBtn.addEventListener("click",async()=>{
+        const name=prompt("Nama Tajuk:");
+        if(!name) return;
+        await wanlawTopics().add({name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+        loadTopics();
+      });
+
+      async function loadTopics(){
+        list.innerHTML="";
+        const snap=await wanlawTopics().orderBy("createdAt","desc").get();
+        snap.forEach(d=>{
+          const topic={id:d.id,...d.data()};
+          const item=el("div",{className:"list-item"});
+          const row=el("div",{className:"card-header"});
+          row.appendChild(el("div",{className:"card-title",text:topic.name}));
+
+          // Edit button (rename topic)
+          const btnEdit=el("button",{className:"btn btn-xs",text:"Sunting"});
+          btnEdit.addEventListener("click",async(e)=>{
+            e.stopPropagation();
+            const newName=prompt("Nama tajuk baharu:", topic.name);
+            if(!newName || newName.trim()===topic.name) return;
+            await wanlawTopics().doc(topic.id).update({name:newName.trim()});
+            loadTopics();
+          });
+
+          // Delete button (already existing)
+          const btnDelete=el("button",{className:"btn btn-xs",text:"Padam"});
+          btnDelete.style.color="#fecaca";
+          btnDelete.addEventListener("click",async(e)=>{
+            e.stopPropagation();
+            if(!confirm("Padam tajuk ini?")) return;
+            await wanlawTopics().doc(topic.id).delete();
+            loadTopics();
+          });
+
+          // Actions row
+          const actions=el("div");
+          actions.appendChild(btnEdit);
+          actions.appendChild(btnDelete);
+          row.appendChild(actions);
+
+          item.appendChild(row);
+
+          item.addEventListener("click",(e)=>{
+            if(e.target===btnEdit || e.target===btnDelete) return;
+            APP_STATE.wanlaw.topicId=topic.id;
+            setRoute("folders");
+          });
+
+          list.appendChild(item);
+        });
+      }
+      loadTopics();
+    }
+
+    // ===== Folder Page =====
+    async function renderFolders(){
+      const tid=APP_STATE.wanlaw.topicId;
+      if(!tid) return setRoute("home");
+      const topicDoc=await wanlawTopics().doc(tid).get();
+      const topicName=topicDoc.exists?topicDoc.data().name:"Original Wan-Law";
+
+      const card=el("div",{className:"card"});
+      const header=el("div",{className:"card-header"});
+      header.appendChild(el("div",{className:"card-title",text:topicName}));
+      const backBtn=el("button",{className:"btn btn-xs",text:"Kembali",on:{click:()=>setRoute("home")}});
+      header.appendChild(backBtn); 
+      card.appendChild(header); 
+      card.appendChild(el("div",{className:"divider"}));
+
+      const addBtn=el("button",{className:"btn btn-full btn-pill",text:"Tambah Folder Baharu"});
+      const list=el("div",{className:"section"});
+      card.appendChild(addBtn); 
+      card.appendChild(list);
+
+      spaRoot.innerHTML=""; 
+      spaRoot.appendChild(card);
+
+      addBtn.addEventListener("click",async()=>{
+        const name=prompt("Nama Folder:");
+        if(!name) return;
+        await wanlawFolders(tid).add({name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+        loadFolders();
+      });
+
+      async function loadFolders(){
+        list.innerHTML="";
+        const snap=await wanlawFolders(tid).orderBy("createdAt","desc").get();
+        snap.forEach(f=>{
+          const folder={id:f.id,...f.data()};
+          const item=el("div",{className:"list-item"});
+          const row=el("div",{className:"card-header"});
+          row.appendChild(el("div",{className:"card-title",text:folder.name}));
+
+          const btnDelete=el("button",{className:"btn btn-xs",text:"Padam"});
+          btnDelete.style.color="#fecaca";
+          btnDelete.addEventListener("click",async(e)=>{
+            e.stopPropagation();
+            if(!confirm("Padam folder ini?")) return;
+            await wanlawFolders(tid).doc(folder.id).delete();
+            loadFolders();
+          });
+
+          row.appendChild(btnDelete);
+          item.appendChild(row);
+
+          item.addEventListener("click",(e)=>{
+            if(e.target===btnDelete) return;
+            APP_STATE.wanlaw.folderId=folder.id;
+            setRoute("note");
+          });
+
+          list.appendChild(item);
+        });
+      }
+      loadFolders();
+    }
+
+    // ===== Rich Text Note Editor =====
+    async function renderNote(){
+      const { topicId, folderId } = APP_STATE.wanlaw;
+      if(!topicId || !folderId) return setRoute("home");
+
+      const notesCol = wanlawNotes(topicId, folderId);
+      let noteSnap = await notesCol.limit(1).get();
+      let noteRef;
+      if(noteSnap.empty){
+        noteRef = await notesCol.add({ content:"", createdAt:firebase.firestore.FieldValue.serverTimestamp() });
+      } else {
+        noteRef = notesCol.doc(noteSnap.docs[0].id);
+      }
+
+      const docSnap = await noteRef.get();
+      const data = docSnap.exists ? docSnap.data() : { content:"" };
+
+      const card = el("div",{className:"card"});
+      const header = el("div",{className:"card-header"});
+      header.appendChild(el("div",{className:"card-title",text:"Nota Folder"}));
+      const backBtn = el("button",{className:"btn btn-xs",text:"Kembali",on:{click:()=>setRoute("folders")}});
+      header.appendChild(backBtn);
+      card.appendChild(header);
+      card.appendChild(el("div",{className:"divider"}));
+
+      // Toolbar
+      const toolbar = el("div",{className:"toolbar"});
+      const btnBold = el("button",{className:"btn btn-xs",text:"Bold"});
+      const btnUnderline = el("button",{className:"btn btn-xs",text:"Underline"});
+      const btnHighlight = el("button",{className:"btn btn-xs",text:"Highlight"});
+      const colorInput = el("input",{attrs:{type:"color"}});
+      
+      // Premium style size buttons (1pt–60pt)
+      const sizeContainer = el("div",{className:"toolbar"});
+      for(let i=1;i<=60;i+=5){ // step 5 for usability
+        const btnSize = el("button",{className:"btn btn-xs",text:`${i}pt`});
+        btnSize.addEventListener("click",()=>document.execCommand("fontSize",false,"7")); 
+        // execCommand fontSize uses 1–7 scale, so we map custom sizes with CSS later
+        btnSize.style.fontSize="12px";
+        btnSize.style.background="#1e293b";
+        btnSize.style.color=varText();
+        sizeContainer.appendChild(btnSize);
+      }
+
+      toolbar.appendChild(btnBold);
+      toolbar.appendChild(btnUnderline);
+      toolbar.appendChild(btnHighlight);
+      toolbar.appendChild(colorInput);
+
+      card.appendChild(toolbar);
+      card.appendChild(sizeContainer);
+
+      // Editor
+      const editor = el("div",{className:"editor",attrs:{contenteditable:"true"}});
+      editor.innerHTML = data.content || "";
+
+      // Commands
+      btnBold.addEventListener("click",()=>document.execCommand("bold"));
+      btnUnderline.addEventListener("click",()=>document.execCommand("underline"));
+      btnHighlight.addEventListener("click",()=>document.execCommand("backColor",false,"#fde68a"));
+      colorInput.addEventListener("input",(e)=>document.execCommand("foreColor",false,e.target.value));
+
+      card.appendChild(editor);
+
+      const hint = el("div",{className:"card-subtitle mt-2",text:"Perubahan disimpan automatik ke cloud (Firestore)."});
+      card.appendChild(hint);
+
+      spaRoot.innerHTML="";
+      spaRoot.appendChild(card);
+
+      // Auto-save
+      let saveTimeout=null;
+      editor.addEventListener("input",()=>{
+        if(saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout=setTimeout(async()=>{
+          await noteRef.update({
+            content:editor.innerHTML,
+            updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+          });
+        },600);
+      });
+    }
+
+    // ===== Auth persistence =====
+    firebase.auth().onAuthStateChanged((user)=>{
+      APP_STATE.user=user||null;
+      if(user){
+        if(APP_STATE.route==="login") setRoute("home");
+        else render();
+      } else {
+        setRoute("login");
+      }
     });
+  </script>
 
-    // Login/Logout
-    document.getElementById('googleLoginBtn').onclick=async()=>{
-      const provider=new firebase.auth.GoogleAuthProvider();
-      await auth.signInWithPopup(provider);
-    };
-    document.getElementById('logoutBtn').onclick=()=>auth.signOut();
-
-    // Back button
-    document.getElementById('backButton').onclick=()=>{
-      if(location.hash.startsWith('#notes')) location.hash=`#folders/${current.topicId}`;
-      else if(location.hash.startsWith('#folders')) location.hash='#home';
-    };
-
-    // Util search
-    function matchesQuery(text,q){ return !q || text.toLowerCase().includes(q.toLowerCase()); }
-
-
-      // Topics CRUD
-    const topicsCol=()=>db.collection('users').doc(current.user.uid).collection('topics');
-
-    async function renderTopics(){
-      const snap=await topicsCol().get();
-      const list=document.getElementById('topicsList'); 
-      list.innerHTML='';
-      const q=document.getElementById('topicSearch').value;
-
-      snap.forEach(doc=>{
-        const d=doc.data();
-        if(matchesQuery(d.title||'',q)){
-          const row=document.createElement('div'); 
-          row.className='row';
-          row.innerHTML=`<div>${d.title}</div>
-            <div>
-              <button data-open="${doc.id}">Buka</button>
-              <button data-edit="${doc.id}">Sunting</button>
-              <button data-del="${doc.id}">Padam</button>
-            </div>`;
-          list.appendChild(row);
-        }
-      });
-
-      // Event listeners
-      list.querySelectorAll('[data-open]').forEach(btn=>{
-        btn.onclick=()=>{location.hash=`#folders/${btn.dataset.open}`;}
-      });
-
-      list.querySelectorAll('[data-edit]').forEach(btn=>{
-        btn.onclick=async()=>{
-          const id=btn.dataset.edit; 
-          const doc=await topicsCol().doc(id).get();
-          const title=prompt('Sunting tajuk:',doc.data().title||'');
-          if(title&&title.trim()!==''){ 
-            await topicsCol().doc(id).update({title,updatedAt:Date.now()}); 
-            renderTopics(); 
-          }
-        }
-      });
-
-      list.querySelectorAll('[data-del]').forEach(btn=>{
-        btn.onclick=async()=>{
-          if(confirm('Padam tajuk?')){ 
-            await topicsCol().doc(btn.dataset.del).delete(); 
-            renderTopics(); 
-          }
-        }
-      });
-    }
-
-    document.getElementById('addTopicBtn').onclick=async()=>{
-      const title=prompt('Masukkan tajuk baharu:');
-      if(title){ 
-        await topicsCol().add({title,createdAt:Date.now()}); 
-        renderTopics(); 
-      }
-    };
-
-    document.getElementById('topicSearch').oninput=renderTopics;
-
-      // Folders CRUD
-    const foldersCol=(tid)=>topicsCol().doc(tid).collection('folders');
-    async function renderFolders(tid){
-      current.topicId=tid;
-      const snap=await foldersCol(tid).get();
-      const list=document.getElementById('foldersList'); list.innerHTML='';
-      const q=document.getElementById('folderSearch').value;
-      snap.forEach(doc=>{
-        const d=doc.data();
-        if(matchesQuery(d.title||'',q)){
-          const row=document.createElement('div'); row.className='row';
-          row.innerHTML=`<div>${d.title}</div>
-            <div>
-              <button data-open="${doc.id}">Buka</button>
-              <button data-edit="${doc.id}">Sunting</button>
-              <button data-del="${doc.id}">Padam</button>
-            </div>`;
-          list.appendChild(row);
-        }
-      });
-      list.querySelectorAll('[data-open]').forEach(btn=>btn.onclick=()=>{location.hash=`#notes/${tid}/${btn.dataset.open}`;});
-      list.querySelectorAll('[data-edit]').forEach(btn=>btn.onclick=async()=>{
-        const id=btn.dataset.edit; const doc=await foldersCol(tid).doc(id).get();
-        const title=prompt('Sunting folder:',doc.data().title||'');
-        if(title&&title.trim()!==''){ await foldersCol(tid).doc(id).update({title,updatedAt:Date.now()}); renderFolders(tid); }
-      });
-      list.querySelectorAll('[data-del]').forEach(btn=>btn.onclick=async()=>{
-        if(confirm('Padam folder?')){ await foldersCol(tid).doc(btn.dataset.del).delete(); renderFolders(tid); }
-      });
-    }
-    document.getElementById('addFolderBtn').onclick=async()=>{
-      const title=prompt('Masukkan folder baharu:');
-      if(title){ await foldersCol(current.topicId).add({title,createdAt:Date.now()}); renderFolders(current.topicId); }
-    };
-    document.getElementById('folderSearch').oninput=()=>renderFolders(current.topicId);
-
-    // Notes
-    const noteDoc=(tid,fid,nid='main')=>foldersCol(tid).doc(fid).collection('notes').doc(nid);
-
-    // Populate font size options
-    (()=>{ const sel=document.getElementById('fontSizeSelect'); for(let i=1;i<=60;i++){ const opt=document.createElement('option'); opt.value=i; opt.textContent=i+'pt'; sel.appendChild(opt);} })();
-
-    // Toolbar actions
-    document.querySelectorAll('.toolbar [data-cmd]').forEach(btn=>{
-      btn.onclick=()=>{ document.execCommand(btn.dataset.cmd,false,null); noteChanged(); };
-    });
-    document.getElementById('colorInput').oninput=e=>{ document.execCommand('foreColor',false,e.target.value); noteChanged(); };
-    document.getElementById('fontSizeSelect').onchange=e=>{
-      const sizePt=e.target.value+'pt';
-      const sel=window.getSelection(); 
-      if(sel.rangeCount){ 
-        const range=sel.getRangeAt(0); 
-        const span=document.createElement('span'); 
-        span.style.fontSize=sizePt; 
-        range.surroundContents(span); 
-      }
-      noteChanged();
-    };
-
-    // Autosave
-    const editor=document.getElementById('noteEditor');
-    const saveStatus=document.getElementById('saveStatus');
-    let saveTimer=null;
-    function noteChanged(){ 
-      clearTimeout(saveTimer); 
-      saveStatus.textContent='Menyimpan...'; 
-      saveTimer=setTimeout(saveNote,800); 
-    }
-    editor.oninput=noteChanged;
-
-    async function openNote(tid,fid){
-      current.folderId=fid; current.noteDocId='main';
-      document.getElementById('notesTitle').textContent='Nota — '+fid;
-      editor.innerHTML=''; saveStatus.textContent='Auto-save aktif.';
-      const doc=await noteDoc(tid,fid,current.noteDocId).get();
-      if(doc.exists){ editor.innerHTML=doc.data().content||''; }
-      else { await noteDoc(tid,fid,current.noteDocId).set({content:'',createdAt:Date.now()}); }
-    }
-    async function saveNote(){
-      if(!current.user||!current.topicId||!current.folderId) return;
-      const html=editor.innerHTML;
-      try{ 
-        await noteDoc(current.topicId,current.folderId,current.noteDocId).set({content:html,updatedAt:Date.now()},{merge:true});
-        saveStatus.textContent='Disimpan automatik.'; 
-      }
-      catch(e){ 
-        saveStatus.textContent='Simpan gagal.'; 
-        console.error(e); 
-      }
-    }
-
-    // Service worker register
-    if('serviceWorker' in navigator){ 
-      window.addEventListener('load',()=>{ navigator.serviceWorker.register('service-worker.js'); }); 
+  <!-- Service worker register -->
+  <script>
+    if("serviceWorker" in navigator){
+      navigator.serviceWorker.register("service-worker.js",{scope:"./"});
     }
   </script>
 </body>
 </html>
+
+
+
