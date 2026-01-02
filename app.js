@@ -65,25 +65,14 @@ function show(id) {
   id.classList.remove('hidden');
 }
 
-// Login dengan Google (guna redirect)
+// Login dengan Google
 btnGoogle.addEventListener('click', async () => {
   const provider = new firebase.auth.GoogleAuthProvider();
   try {
-    await auth.signInWithRedirect(provider);
+    await auth.signInWithPopup(provider);
   } catch (e) {
     alert('Log masuk gagal: ' + e.message);
   }
-});
-
-// Tangkap result selepas redirect
-auth.getRedirectResult().then((result) => {
-  if (result.user) {
-    state.user = result.user;
-    show(vHome);
-    loadFiles();
-  }
-}).catch((error) => {
-  alert('Redirect login gagal: ' + error.message);
 });
 
 // Logout
