@@ -118,9 +118,18 @@ async function loadFiles() {
 function renderFiles() {
   const q = (searchFiles.value || '').toLowerCase();
   filesList.innerHTML = '';
-  state.files
+
+  // Susun fail ikut tajuk: 0–9 A–Z
+  const sorted = [...state.files].sort((a, b) => {
+    const titleA = (a.title || '').toLowerCase();
+    const titleB = (b.title || '').toLowerCase();
+    return titleA.localeCompare(titleB, 'en', { numeric: true });
+  });
+
+  sorted
     .filter(f => !q || (f.title || '').toLowerCase().includes(q))
     .forEach(f => {
+      // ... (paparan fail seperti asal)
       const row = document.createElement('div');
       row.className = 'item';
       const left = document.createElement('div');
@@ -148,6 +157,7 @@ function renderFiles() {
       filesList.appendChild(row);
     });
 }
+
 
 searchFiles.addEventListener('input', renderFiles);
 
