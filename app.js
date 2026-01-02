@@ -360,7 +360,7 @@ fontSizeInput.addEventListener('change', () => {
 let saveTimer = null;
 function scheduleSave() {
   clearTimeout(saveTimer);
-  // tunggu 3000ms (3 saat) selepas pengguna berhenti menaip
+  // tunggu 6000ms (6 saat) selepas pengguna berhenti menaip
   saveTimer = setTimeout(saveNote, 3000);
 }
 editor.addEventListener('input', scheduleSave);
