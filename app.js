@@ -208,13 +208,22 @@ async function loadFolders() {
 function renderFolders() {
   const q = (searchFolders.value || '').toLowerCase();
   foldersList.innerHTML = '';
-  state.folders
+
+  // Susun folder ikut tajuk: 0–9 A–Z
+  const sorted = [...state.folders].sort((a, b) => {
+    const titleA = (a.title || '').toLowerCase();
+    const titleB = (b.title || '').toLowerCase();
+    return titleA.localeCompare(titleB, 'en', { numeric: true });
+  });
+
+  sorted
     .filter(f => {
       if (!q) return true;
       const name = (f.title || '').toLowerCase();
       return q.split('').some(ch => name.includes(ch));
     })
     .forEach(f => {
+      // ... paparan folder seperti asal
       const row = document.createElement('div');
       row.className = 'item';
       const left = document.createElement('div');
