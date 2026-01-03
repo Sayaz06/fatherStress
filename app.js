@@ -346,32 +346,24 @@ colorPicker.addEventListener('input', () => {
 });
 
 
-const fontSizePicker = document.getElementById('font-size-picker');
-
-fontSizePicker.addEventListener('change', () => {
-  const sizePt = parseInt(fontSizePicker.value, 10);
+// Saiz teks (+ / -)
+function adjustFontSize(delta) {
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
 
-  const range = sel.getRangeAt(0);
-  const selectedText = range.extractContents();
+  const node = sel.anchorNode?.parentElement;
+  if (!node) return;
 
-  // Balut selection dengan span baru yang ada style font-size
-  const span = document.createElement('span');
-  span.style.fontSize = `${sizePt}pt`;
-  span.appendChild(selectedText);
+  // Ambil saiz semasa (default 14px kalau tiada)
+  const currentSize = parseFloat(window.getComputedStyle(node).fontSize) || 14;
+  const newSize = Math.max(8, currentSize + delta); // minimum 8px
 
-  range.insertNode(span);
-
-  // Reset selection supaya cursor kekal selepas teks
-  sel.removeAllRanges();
-  const newRange = document.createRange();
-  newRange.setStartAfter(span);
-  newRange.collapse(true);
-  sel.addRange(newRange);
-
+  node.style.fontSize = `${newSize}px`;
   editor.focus();
-});
+}
+
+document.getElementById('btn-size-up').addEventListener('click', () => adjustFontSize(2));
+document.getElementById('btn-size-down').addEventListener('click', () => adjustFontSize(-2));
 
 
 
