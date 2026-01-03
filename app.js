@@ -345,32 +345,30 @@ colorPicker.addEventListener('input', () => {
   editor.focus();
 });
 
-const fontSizePicker = document.getElementById('font-size-picker');
 
 const fontSizePicker = document.getElementById('font-size-picker');
 
 fontSizePicker.addEventListener('change', () => {
   const sizePt = parseInt(fontSizePicker.value, 10);
-
-  // Paksa execCommand apply <font size="7"> pada selection semasa
-  document.execCommand('styleWithCSS', true);
-  document.execCommand('fontSize', false, 7);
-
-  // Cari semua node <font size="7"> yang baru dibuat dan tukar ke CSS
-  const els = editor.querySelectorAll('font[size="7"]');
-  els.forEach(el => {
-    el.removeAttribute('size');
-    el.style.fontSize = `${sizePt}pt`;
-  });
-
-  // Tambahan: override terus node yang ada style font-size (contoh dari Word)
   const sel = window.getSelection();
-  if (sel.rangeCount > 0) {
-    const node = sel.anchorNode?.parentElement;
-    if (node) {
-      node.style.fontSize = `${sizePt}pt`;
-    }
-  }
+  if (!sel.rangeCount) return;
+
+  const range = sel.getRangeAt(0);
+  const selectedText = range.extractContents();
+
+  // Balut selection dengan span baru yang ada style font-size
+  const span = document.createElement('span');
+  span.style.fontSize = `${sizePt}pt`;
+  span.appendChild(selectedText);
+
+  range.insertNode(span);
+
+  // Reset selection supaya cursor kekal selepas teks
+  sel.removeAllRanges();
+  const newRange = document.createRange();
+  newRange.setStartAfter(span);
+  newRange.collapse(true);
+  sel.addRange(newRange);
 
   editor.focus();
 });
