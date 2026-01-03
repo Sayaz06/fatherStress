@@ -1,4 +1,4 @@
-/ ==================== PART 1: FIREBASE SETUP & AUTH ====================
+// ==================== PART 1: FIREBASE SETUP & AUTH ====================
 
 // Config Firebase
 const firebaseConfig = {
@@ -306,26 +306,26 @@ async function openFolder(folderId, folderTitle) {
 
   // Subscribe to the note for live updates
   if (state.noteUnsubscribe) state.noteUnsubscribe();
-  state.noteUnsubscribe = notesRef.doc(state.currentNoteId).onSnapshot(doc => {
-    const data = doc.data();
-    if (data && typeof data.content === 'string') {
-      // Avoid cursor jump: only update if different
-      if (editor.innerHTML.trim() !== (data.content || '').trim()) {
-        const sel = window.getSelection();
-        const pos = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).startOffset : null;
+state.noteUnsubscribe = notesRef.doc(state.currentNoteId).onSnapshot(doc => {
+  const data = doc.data();
+  if (data && typeof data.content === 'string') {
+    // Avoid cursor jump: only update if different
+    if (editor.innerHTML.trim() !== (data.content || '').trim()) {
+      const sel = window.getSelection();
+      const pos = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).startOffset : null;
 
-        editor.innerHTML = data.content || '';
+      editor.innerHTML = data.content || '';
 
-        if (pos !== null) {
-          const range = document.createRange();
-          range.setStart(editor.firstChild || editor, Math.min(pos, (editor.firstChild?.length || 0)));
-          range.collapse(true);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
+      if (pos !== null) {
+        const range = document.createRange();
+        range.setStart(editor.firstChild || editor, Math.min(pos, (editor.firstChild?.length || 0)));
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
       }
     }
-  });
+  }
+});
 
   show(vNote);
 }
@@ -345,57 +345,14 @@ colorPicker.addEventListener('input', () => {
   editor.focus();
 });
 
-let savedSelection = null;
-
-// Simpan selection bila user highlight dalam editor + update input
-editor.addEventListener('mouseup', () => {
-  const sel = window.getSelection();
-  if (sel.rangeCount > 0) savedSelection = sel.getRangeAt(0);
-  updateFontSizeInput();
-});
-editor.addEventListener('keyup', () => {
-  const sel = window.getSelection();
-  if (sel.rangeCount > 0) savedSelection = sel.getRangeAt(0);
-  updateFontSizeInput();
-});
-
-// Fungsi untuk baca saiz semasa perkataan yang dihighlight
-function updateFontSizeInput() {
-  const sel = window.getSelection();
-  if (!sel.rangeCount) return;
-  const node = sel.anchorNode;
-  if (!node) return;
-  let el = node.nodeType === 1 ? node : node.parentElement;
-  if (!el) return;
-  const size = window.getComputedStyle(el).fontSize;
-  if (size) {
-    const px = parseFloat(size);
-    const pt = Math.round(px * 0.75); // convert px → pt
-    fontSizeInput.value = pt;
-  }
-}
-
 fontSizeInput.addEventListener('change', () => {
   const sizePt = Math.max(1, Math.min(60, Number(fontSizeInput.value) || 14));
-
-  // Restore selection sebelum apply
-  if (savedSelection) {
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(savedSelection);
-  }
-
-  // Apply font size pada selection
-  document.execCommand('styleWithCSS', false, true);
-  document.execCommand('fontSize', false, 7);
-
-  // Tukar semua <font size="7"> dalam editor kepada inline style
+  document.execCommand('fontSize', false, 7); // apply largest, then replace with pt
   const els = editor.querySelectorAll('font[size="7"]');
   els.forEach(el => {
     el.removeAttribute('size');
     el.style.fontSize = `${sizePt}pt`;
   });
-
   editor.focus();
 });
 
@@ -404,7 +361,7 @@ let saveTimer = null;
 function scheduleSave() {
   clearTimeout(saveTimer);
   // tunggu 6000ms (6 saat) selepas pengguna berhenti menaip
-  saveTimer = setTimeout(saveNote, 6000);
+  saveTimer = setTimeout(saveNote, 3000);
 }
 editor.addEventListener('input', scheduleSave);
 editor.addEventListener('keyup', scheduleSave);
