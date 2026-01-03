@@ -334,33 +334,30 @@ state.noteUnsubscribe = notesRef.doc(state.currentNoteId).onSnapshot(doc => {
 document.querySelectorAll('.toolbar .btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const action = btn.dataset.action;
-
-    if (action === 'bold') {
-      document.execCommand('bold');
-    }
-    if (action === 'underline') {
-      document.execCommand('underline');
-    }
-    if (action.startsWith('size-')) {
-      const sizePt = parseInt(action.split('-')[1], 10);
-      document.execCommand('styleWithCSS', true);
-      document.execCommand('fontSize', false, 7);
-      const els = editor.querySelectorAll('font[size="7"]');
-      els.forEach(el => {
-        el.removeAttribute('size');
-        el.style.fontSize = `${sizePt}pt`;
-      });
-    }
-
+    if (action === 'bold') document.execCommand('bold');
+    if (action === 'underline') document.execCommand('underline');
     editor.focus();
   });
 });
-
 
 colorPicker.addEventListener('input', () => {
   document.execCommand('foreColor', false, colorPicker.value);
   editor.focus();
 });
+
+const fontSizePicker = document.getElementById('font-size-picker');
+fontSizePicker.addEventListener('change', () => {
+  const sizePt = parseInt(fontSizePicker.value, 10);
+  document.execCommand('styleWithCSS', true);
+  document.execCommand('fontSize', false, 7);
+  const els = editor.querySelectorAll('font[size="7"]');
+  els.forEach(el => {
+    el.removeAttribute('size');
+    el.style.fontSize = `${sizePt}pt`;
+  });
+  editor.focus();
+});
+
 
 // Auto-save (debounced)
 let saveTimer = null;
