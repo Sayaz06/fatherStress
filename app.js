@@ -346,25 +346,44 @@ colorPicker.addEventListener('input', () => {
 });
 
 const fontSizePicker = document.getElementById('font-size-picker');
+
+const fontSizePicker = document.getElementById('font-size-picker');
+
 fontSizePicker.addEventListener('change', () => {
   const sizePt = parseInt(fontSizePicker.value, 10);
+
+  // Paksa execCommand apply <font size="7"> pada selection semasa
   document.execCommand('styleWithCSS', true);
   document.execCommand('fontSize', false, 7);
+
+  // Cari semua node <font size="7"> yang baru dibuat dan tukar ke CSS
   const els = editor.querySelectorAll('font[size="7"]');
   els.forEach(el => {
     el.removeAttribute('size');
     el.style.fontSize = `${sizePt}pt`;
   });
+
+  // Tambahan: override terus node yang ada style font-size (contoh dari Word)
+  const sel = window.getSelection();
+  if (sel.rangeCount > 0) {
+    const node = sel.anchorNode?.parentElement;
+    if (node) {
+      node.style.fontSize = `${sizePt}pt`;
+    }
+  }
+
   editor.focus();
 });
+
+
 
 
 // Auto-save (debounced)
 let saveTimer = null;
 function scheduleSave() {
   clearTimeout(saveTimer);
-  // tunggu 6000ms (6 saat) selepas pengguna berhenti menaip
-  saveTimer = setTimeout(saveNote, 3000);
+  // tunggu 6000ms (5 saat) selepas pengguna berhenti menaip
+  saveTimer = setTimeout(saveNote, 5000);
 }
 editor.addEventListener('input', scheduleSave);
 editor.addEventListener('keyup', scheduleSave);
