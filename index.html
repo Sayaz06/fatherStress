@@ -4,138 +4,122 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Original Wan-Law</title>
-  <meta name="theme-color" content="#020617" />
-  <link rel="manifest" href="manifest.webmanifest" />
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            slate: { 900: '#020617', 800: '#0b1220', 700: '#1f2937' }
+          }
+        }
+      }
+    }
+  </script>
 
   <style>
-    :root{
-      --bg:#020617; --text:#e5e7eb; --muted:#9ca3af;
-      --border:#1f2937; --border2:#4b5563;
-      --grad1:#6366f1; --grad2:#8b5cf6;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0; background:var(--bg); color:var(--text);
-      font-family:system-ui, -apple-system, sans-serif;
-    }
-    .container{max-width:900px; margin:0 auto; padding:20px}
-    .card{
-      background:#0b1220; border:1px solid var(--border);
-      border-radius:16px; padding:16px; box-shadow:0 10px 25px rgba(0,0,0,.35);
-    }
-    /* TAJUK UTAMA: Boleh wrap ke bawah */
-    .title{
-      font-weight:700; font-size:24px; margin:8px 0 16px;
-      word-wrap: break-word; white-space: normal; line-height: 1.3;
-    }
-    .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
-    .btn{
-      display:inline-flex; align-items:center; justify-content:center;
-      padding:10px 14px; border-radius:12px; color:white; border:1px solid transparent;
-      background:linear-gradient(135deg, var(--grad1), var(--grad2));
-      cursor:pointer; transition:.15s;
-    }
-    .btn-ghost{background:transparent; border:1px solid var(--border2); color:var(--text)}
-    .btn-danger{background:#7c2d12; border:none}
+    /* Custom scrollbar untuk nampak kemas */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #020617; }
+    ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 10px; }
     
-    .input, .item-textarea {
-      width:100%; padding:10px 12px; border-radius:12px;
-      background:#0b1220; border:1px solid var(--border2);
-      color:var(--text); outline:none; font-family: inherit;
-    }
-
-    .list{display:flex; flex-direction:column; gap:10px; margin-top:12px}
-    .item{
-      display:flex; flex-direction: column; /* Ubah ke column supaya tajuk panjang ada ruang */
-      padding:12px; border-radius:12px; border:1px solid var(--border);
-      background:#0e1626; gap:10px;
-    }
-    
-    /* Ruang input tajuk dalam list */
-    .item-textarea {
-      background: transparent; border: 1px solid transparent;
-      resize: none; overflow: hidden; font-size: 16px; padding: 5px;
-    }
-    .item-textarea:focus { border-color: var(--grad1); background: #020617; }
-
-    .toolbar{
-      display:flex; gap:8px; flex-wrap:wrap; padding:8px; border:1px solid var(--border);
-      border-radius:12px; margin:10px 0; background:#0e1626;
-    }
-    .editor{
-      min-height:300px; padding:15px; border-radius:12px;
-      border:1px solid var(--border); background:#0b1220; outline:none; line-height: 1.6;
-    }
-    .subtext{color:var(--muted); font-size:12px}
-    .hidden{display:none !important}
-
-    /* HISTORY STYLES */
-    .history-section { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 15px; }
-    .history-item {
-      display: flex; justify-content: space-between; align-items: center;
-      background: #111827; padding: 10px; border-radius: 8px; margin-bottom: 5px; font-size: 13px;
+    .editor-container [contenteditable]:empty:before {
+      content: attr(placeholder);
+      color: #9ca3af;
+      cursor: text;
     }
   </style>
+
+  <meta name="theme-color" content="#020617" />
+</head>
+<body class="min-h-screen bg-slate-900 text-slate-100 font-sans">
+
+  <header class="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
+    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
+      Original Wan-Law
+    </h1>
+    <button id="btn-logout" class="hidden px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all">
+      Log keluar
+    </button>
+  </header>
+
+  <main class="max-w-4xl mx-auto p-4 md:p-6">
+
+    <section id="view-login" class="mt-20 flex flex-col items-center justify-center">
+      <div class="w-full max-w-md p-8 rounded-2xl bg-slate-800/50 border border-slate-700 shadow-2xl">
+        <h2 class="text-2xl font-bold mb-2">Selamat Datang</h2>
+        <p class="text-slate-400 mb-8 text-sm">Simpan nota skrip dan undang-undang anda dengan selamat di awan.</p>
+        <button id="btn-google" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 font-bold shadow-lg shadow-indigo-500/20 transition-all">
+          Masuk dengan Google
+        </button>
+      </div>
+    </section>
+
+    <section id="view-home" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row gap-3">
+        <input id="search-files" type="text" placeholder="Cari fail..." class="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" />
+        <button id="btn-add-file" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold transition-all">
+          + Fail Baharu
+        </button>
+      </div>
+      <div id="files-list" class="grid gap-3"></div>
+    </section>
+
+    <section id="view-folders" class="hidden space-y-6">
+      <div class="flex items-center justify-between gap-4">
+        <button id="btn-back-home" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm border border-slate-700">← Kembali</button>
+        <h2 id="current-file-name" class="flex-1 text-right font-bold text-indigo-400 truncate"></h2>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-3">
+        <input id="search-folders" type="text" placeholder="Cari folder..." class="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" />
+        <button id="btn-add-folder" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold">
+          + Folder Baharu
+        </button>
+      </div>
+      <div id="folders-list" class="grid gap-3"></div>
+    </section>
+
+    <section id="view-note" class="hidden space-y-4">
+      <div class="flex items-center justify-between gap-4 sticky top-[73px] bg-slate-900/95 py-2 z-40">
+        <button id="btn-back-folders" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm border border-slate-700">← Kembali</button>
+        <h2 id="current-folder-name" class="flex-1 text-right font-bold text-violet-400 truncate"></h2>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 p-2 bg-slate-800/80 rounded-xl border border-slate-700 shadow-inner">
+        <button data-action="bold" class="p-2 w-10 h-10 rounded-lg hover:bg-slate-700 font-bold">B</button>
+        <button data-action="underline" class="p-2 w-10 h-10 rounded-lg hover:bg-slate-700 underline">U</button>
+        <input id="color-picker" type="color" class="w-8 h-8 bg-transparent border-none cursor-pointer" />
+        <div class="h-6 w-px bg-slate-700 mx-1"></div>
+        <button id="btn-size-down" class="p-2 w-10 h-10 rounded-lg hover:bg-slate-700">−</button>
+        <button id="btn-size-up" class="p-2 w-10 h-10 rounded-lg hover:bg-slate-700">+</button>
+        <div class="flex-1"></div>
+        <button id="btn-export-json" class="px-3 py-1.5 text-xs rounded-lg bg-slate-700 hover:bg-slate-600">Export JSON</button>
+      </div>
+
+      <div id="editor" class="editor-container min-h-[400px] p-6 rounded-2xl bg-slate-800/30 border border-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-600 text-lg leading-relaxed shadow-inner" contenteditable="true" placeholder="Mula menulis nota anda di sini..."></div>
+      
+      <div class="flex justify-between items-center px-2">
+        <p id="save-status" class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Auto-simpan aktif</p>
+      </div>
+
+      <div class="mt-12 p-5 rounded-2xl bg-slate-800/20 border border-slate-800">
+        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Sejarah Versi (5 Terakhir)</h3>
+        <div id="history-list" class="space-y-2">
+           <p class="text-xs text-slate-600 italic">Tiada sejarah tersedia.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="mt-20 py-10 text-center border-t border-slate-800/50">
+    <p class="text-xs text-slate-600 uppercase tracking-widest">Original Wan-Law &copy; 2026</p>
+  </footer>
 
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script defer src="app.js"></script>
-</head>
-<body>
-  <div class="container">
-    <section id="view-login" class="card">
-      <div class="title">Original Wan-Law</div>
-      <button id="btn-google" class="btn">Log masuk dengan Google</button>
-    </section>
-
-    <section id="view-home" class="card hidden">
-      <div class="row" style="justify-content: space-between;">
-        <div class="title">Fail Utama</div>
-        <button id="btn-logout" class="btn-ghost">Logout</button>
-      </div>
-      <div class="row">
-        <input id="search-files" class="input" style="flex:1" placeholder="Cari Fail..." />
-        <button id="btn-add-file" class="btn">Tambah Fail</button>
-      </div>
-      <div id="files-list" class="list"></div>
-    </section>
-
-    <section id="view-folders" class="card hidden">
-      <div class="row">
-        <button id="btn-back-home" class="btn-ghost">← Kembali</button>
-      </div>
-      <div class="title" id="current-file-name">Nama Fail</div>
-      <div class="row">
-        <input id="search-folders" class="input" style="flex:1" placeholder="Cari Folder..." />
-        <button id="btn-add-folder" class="btn">Tambah Folder</button>
-      </div>
-      <div id="folders-list" class="list"></div>
-    </section>
-
-    <section id="view-note" class="card hidden">
-      <div class="row">
-        <button id="btn-back-folders" class="btn-ghost">← Kembali</button>
-      </div>
-      <div class="title" id="current-folder-name">Nama Folder</div>
-      
-      <div class="toolbar">
-        <button class="btn" data-action="bold">B</button>
-        <button class="btn" data-action="underline">U</button>
-        <input id="color-picker" type="color" />
-        <button id="btn-size-down" class="btn">−</button>
-        <button id="btn-size-up" class="btn">+</button>
-        <button id="btn-export-json" class="btn">Export</button>
-      </div>
-
-      <div id="editor" class="editor" contenteditable="true" spellcheck="false"></div>
-      <p id="save-status" class="subtext">Auto-simpan aktif.</p>
-
-      <div class="history-section">
-        <p><strong>Sejarah (History):</strong></p>
-        <div id="history-list"></div>
-      </div>
-    </section>
-  </div>
 </body>
 </html>
