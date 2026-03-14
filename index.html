@@ -17,7 +17,9 @@
       background: transparent !important; border: none !important; outline: none !important;
       resize: none !important; width: 100%; color: #60a5fa; font-weight: 700;
       font-size: 1.25rem; line-height: 1.4; padding: 0; margin: 0; overflow: hidden;
+      cursor: default;
     }
+    .title-textarea:focus { cursor: text; }
     .clean-card {
       width: 100%; background: rgba(30, 41, 59, 0.4); padding: 1.5rem;
       border-radius: 1.25rem; border: 1px solid #1e293b; margin-bottom: 1rem;
@@ -72,6 +74,7 @@
       </div>
       <div id="editor" class="editor-container min-h-[500px] p-8 rounded-3xl bg-slate-800/10 border border-slate-800 focus:outline-none text-lg" contenteditable="true" placeholder="Tulis sesuatu..."></div>
       <p id="save-status" class="text-[10px] uppercase text-slate-500 font-bold text-center mt-4 tracking-widest text-blue-400">Sedia.</p>
+      
       <div class="mt-12 p-6 rounded-3xl bg-slate-800/10 border border-slate-800">
         <h3 class="text-[10px] font-bold text-slate-500 uppercase mb-6 tracking-widest">Sejarah Versi Kekal</h3>
         <div id="history-list" class="space-y-3"></div>
