@@ -7,7 +7,6 @@
   <meta name="theme-color" content="#020617" />
   <link rel="manifest" href="manifest.webmanifest" />
 
-  <!-- Premium theme styles -->
   <style>
     :root{
       --bg:#020617;         /* Slate/Navy gelap */
@@ -56,16 +55,19 @@
     .input::placeholder{color:var(--muted)}
     .list{display:flex; flex-direction:column; gap:10px; margin-top:12px}
     .item{
-      display:flex; align-items:center; justify-content:space-between;
+      display:flex; align-items:flex-start; justify-content:space-between;
       padding:10px 12px; border-radius:12px; border:1px solid var(--border);
-      background:#0e1626;
+      background:#0e1626; gap:10px;
     }
+    /* PENYELARASAN TAJUK PANJANG */
     .item-name{
-      display:flex; gap:10px; align-items:center; flex:1; min-width:0;
+      display:flex; gap:10px; align-items:flex-start; flex:1; min-width:0;
     }
-    .item-name input{
-      flex:1; min-width:0;
-      background:transparent; border:none; color:var(--text); outline:none;
+    .item-name textarea {
+      flex:1; min-width:0; background:transparent; border:none; 
+      color:var(--text); outline:none; resize:none; overflow:hidden;
+      font-family:inherit; font-size:inherit; padding:0; margin:0;
+      line-height: 1.4;
     }
     .toolbar{
       display:flex; gap:8px; flex-wrap:wrap; padding:8px; border:1px solid var(--border);
@@ -89,18 +91,27 @@
       width:90px; background:#0b1220; border:1px solid var(--border2);
       border-radius:10px; color:var(--text); padding:8px;
     }
+
+    /* HISTORY STYLES */
+    .history-section {
+      margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border);
+    }
+    .history-list {
+      list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px;
+    }
+    .history-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #111827; padding: 8px 12px; border-radius: 8px; font-size: 13px;
+    }
   </style>
 
-  <!-- Firebase SDKs (Compat for simplicity) -->
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <!-- App main script -->
   <script defer src="app.js"></script>
 </head>
 <body>
   <div class="container">
-    <!-- View: Login -->
     <section id="view-login" class="card">
       <div class="title">Original Wan-Law</div>
       <p class="subtext">Log masuk dengan akaun Gmail untuk menyimpan cerita & skrip anda secara selamat.</p>
@@ -110,7 +121,6 @@
       </div>
     </section>
 
-    <!-- View: Home -->
     <section id="view-home" class="card hidden">
       <div class="header">
         <div class="title">Original Wan-Law</div>
@@ -127,7 +137,6 @@
       <div id="files-list" class="list"></div>
     </section>
 
-    <!-- View: Subfolder -->
     <section id="view-folders" class="card hidden">
       <div class="header">
         <div class="row">
@@ -140,13 +149,12 @@
 
       <div class="row">
         <input id="search-folders" class="input search" placeholder="Cari Folder (longgar: 1–2 huruf/nombor)…" />
-        <button id="btn-add-folder" class="btn">Tambah subfolderFolder Baharu</button>
+        <button id="btn-add-folder" class="btn">Tambah Folder Baharu</button>
       </div>
 
       <div id="folders-list" class="list"></div>
     </section>
 
-    <!-- View: Note -->
     <section id="view-note" class="card hidden">
       <div class="header">
         <div class="row">
@@ -157,27 +165,33 @@
 
       <p class="subtext" id="current-folder-name"></p>
 
-<div class="toolbar">
-  <button class="btn" data-action="bold">Bold</button>
-  <button class="btn" data-action="underline">Underline</button>
-  <input id="color-picker" type="color" title="Pilih warna perkataan" />
-  <button id="btn-size-down" class="btn">−</button>
-  <button id="btn-size-up" class="btn">+</button>
+      <div class="toolbar">
+        <button class="btn" data-action="bold">Bold</button>
+        <button class="btn" data-action="underline">Underline</button>
+        <input id="color-picker" type="color" title="Pilih warna perkataan" />
+        <button id="btn-size-down" class="btn">−</button>
+        <button id="btn-size-up" class="btn">+</button>
 
-  <!-- Tambahan Import/Export JSON -->
-  <button id="btn-export-json" class="btn">Export JSON</button>
-  <input type="file" id="import-json-file" accept="application/json" hidden />
-  <button id="btn-import-json" class="btn">Import JSON</button>
-</div>
-
-
+        <button id="btn-export-json" class="btn">Export JSON</button>
+        <input type="file" id="import-json-file" accept="application/json" hidden />
+        <button id="btn-import-json" class="btn">Import JSON</button>
+      </div>
 
       <div id="editor" class="editor" contenteditable="true" spellcheck="false" placeholder="Tulis nota anda di sini…"></div>
-      <p class="subtext" id="save-status">Auto-simpan diaktifkan.</p>
+      
+      <div class="row" style="justify-content: space-between; margin-top: 10px;">
+        <p class="subtext" id="save-status">Auto-simpan diaktifkan.</p>
+      </div>
+
+      <div class="history-section">
+        <p class="subtext"><strong>Sejarah Versi (5 peringkat):</strong></p>
+        <div id="history-list" class="history-list">
+          <span class="subtext">Tiada sejarah tersedia.</span>
+        </div>
+      </div>
     </section>
   </div>
 
-  <!-- Register Service Worker -->
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('service-worker.js').catch(() => {});
