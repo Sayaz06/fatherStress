@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
-  <title>Wan-Law v4 Fast</title>
+  <title>Wan-Law v5 Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -23,7 +23,7 @@
 <body class="min-h-screen w-full">
 
   <header class="w-full flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/80 sticky top-0 z-50">
-    <h1 class="text-lg font-bold text-indigo-400">Wan-Law <span class="text-white text-xs font-normal">v4 Fast</span></h1>
+    <h1 class="text-lg font-bold text-indigo-400">Wan-Law <span class="text-white text-xs font-normal">v5 Pro</span></h1>
     <button id="btnLogout" class="hidden px-2 py-1 rounded bg-red-900/20 text-red-400 text-[10px] border border-red-900/50">Logout</button>
   </header>
 
@@ -44,7 +44,7 @@
 
     <section id="view-folders" class="hidden">
       <div class="flex items-center justify-between mb-4 gap-2">
-        <button onclick="showView('home')" class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded">←</button>
+        <button onclick="showView('home')" class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded">← Kembali</button>
         <h3 id="labelFile" class="font-bold text-indigo-400 text-sm truncate"></h3>
       </div>
       <div class="flex gap-2 mb-6">
@@ -59,25 +59,31 @@
         <button id="btnBackToFolders" class="px-3 py-1.5 rounded bg-slate-800 text-[10px] font-bold">← KEMBALI</button>
         <div class="text-right">
           <h3 id="labelFolder" class="font-bold text-indigo-400 text-xs truncate"></h3>
-          <p id="saveStatus" class="text-[9px] text-slate-500 h-3"></p>
+          <p id="saveStatus" class="text-[9px] text-slate-500 h-3 italic"></p>
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-1.5 p-2 bg-slate-800 rounded-t-xl border-x border-t border-slate-700">
+      <div class="flex flex-wrap items-center gap-1 p-2 bg-slate-800 rounded-t-xl border-x border-t border-slate-700">
+        <button title="Undo" class="w-9 h-9 flex items-center justify-center bg-slate-900 rounded font-bold hover:bg-slate-600" onclick="doCmd('undo')">↩</button>
+        <button title="Redo" class="w-9 h-9 flex items-center justify-center bg-slate-900 rounded font-bold hover:bg-slate-600" onclick="doCmd('redo')">↪</button>
+        <div class="h-6 w-[1px] bg-slate-600 mx-1"></div>
         <button class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold" onclick="doCmd('bold')">B</button>
         <button class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded underline font-bold" onclick="doCmd('underline')">U</button>
         <input type="color" oninput="doCmd('foreColor', this.value)" class="w-9 h-9 bg-transparent cursor-pointer" />
-        <button id="btnHistory" class="ml-auto px-3 h-9 bg-amber-600/20 text-amber-400 text-[10px] rounded border border-amber-900/50 font-bold">🕒 SEJARAH</button>
+        
+        <button id="btnManualSave" class="ml-auto px-2 h-9 bg-indigo-900 text-indigo-100 text-[9px] rounded border border-indigo-500 font-bold">SIMPAN SEJARAH</button>
+        <button id="btnHistory" class="px-2 h-9 bg-amber-600/20 text-amber-400 text-[9px] rounded border border-amber-900/50 font-bold ml-1">🕒 LIHAT</button>
       </div>
+      
       <div id="editor" class="editor" contenteditable="true" spellcheck="false"></div>
       
       <div id="modalHistory" class="fixed inset-0 bg-black/90 z-[100] hidden flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
           <div class="p-4 border-b border-slate-800 flex justify-between bg-slate-800/50">
-            <h4 class="font-bold text-sm">PULIHKAN VERSI</h4>
-            <button onclick="toggleHistory(false)" class="text-slate-400 px-2">&times;</button>
+            <h4 class="font-bold text-sm">SEJARAH MANUAL</h4>
+            <button onclick="toggleHistory(false)" class="text-slate-400 px-2 text-xl">&times;</button>
           </div>
-          <div id="historyList" class="p-4 flex flex-col gap-3"></div>
+          <div id="historyList" class="p-4 flex flex-col gap-3 max-h-[400px] overflow-y-auto"></div>
         </div>
       </div>
     </section>
@@ -97,7 +103,7 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    let state = { uid: null, fileId: null, folderId: null, noteId: null, saveTimer: null, statusTimer: null };
+    let state = { uid: null, fileId: null, folderId: null, noteId: null, saveTimer: null };
 
     function showView(id) {
       document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
@@ -159,39 +165,33 @@
       }
     }
 
-    // --- SAVING & HISTORY LOGIC ---
+    // --- AUTO-SAVE (DATABASE UTAMA) ---
     document.getElementById('editor').oninput = () => {
-      const status = document.getElementById('saveStatus');
-      status.textContent = 'Menaip...';
-      clearTimeout(state.statusTimer);
-      state.statusTimer = setTimeout(() => { status.textContent = ''; }, 2000);
-
       clearTimeout(state.saveTimer);
       state.saveTimer = setTimeout(async () => {
         const content = document.getElementById('editor').innerHTML;
         const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
-        
         await noteDoc.update({ content, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-        
-        const histRef = noteDoc.collection('history');
-        
-        // Versi Real-time (Limit 5)
-        await histRef.add({ content, timestamp: firebase.firestore.FieldValue.serverTimestamp(), type: 'realtime' });
-        const rtDocs = await histRef.where('type', '==', 'realtime').orderBy('timestamp', 'desc').get();
-        if(rtDocs.size > 5) rtDocs.docs.slice(5).forEach(d => d.ref.delete());
+        document.getElementById('saveStatus').textContent = 'Cloud saved';
+        setTimeout(() => { document.getElementById('saveStatus').textContent = ''; }, 1500);
+      }, 5000); // 5 saat auto-save ke database utama
+    };
 
-        // Versi Semalam (Hanya update jika > 24 jam)
-        const dailySnap = await histRef.where('type', '==', 'daily').orderBy('timestamp', 'desc').limit(1).get();
-        const now = new Date().getTime();
-        if(dailySnap.empty || (now - dailySnap.docs[0].data().timestamp.toDate().getTime() > 86400000)) {
-          await histRef.add({ content, timestamp: firebase.firestore.FieldValue.serverTimestamp(), type: 'daily' });
-          const dyDocs = await histRef.where('type', '==', 'daily').orderBy('timestamp', 'desc').get();
-          if(dyDocs.size > 1) dyDocs.docs.slice(1).forEach(d => d.ref.delete());
-        }
-
-        status.textContent = 'Tersimpan';
-        setTimeout(() => { if(status.textContent === 'Tersimpan') status.textContent = ''; }, 2000);
-      }, 3000);
+    // --- MANUAL SEJARAH (HANYA SIMPAN BILA TEKAN) ---
+    document.getElementById('btnManualSave').onclick = async () => {
+      const content = document.getElementById('editor').innerHTML;
+      if(!content) return;
+      
+      document.getElementById('saveStatus').textContent = 'Storing history...';
+      const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
+      
+      await noteDoc.collection('history_manual').add({
+        content: content,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      
+      alert('Versi ini telah disimpan ke dalam Sejarah!');
+      document.getElementById('saveStatus').textContent = '';
     };
 
     async function toggleHistory(show) {
@@ -199,37 +199,35 @@
       if (!show) return modal.classList.add('hidden');
       modal.classList.remove('hidden');
       const list = document.getElementById('historyList');
-      list.innerHTML = '<p class="text-xs text-center animate-pulse">Memuatkan...</p>';
+      list.innerHTML = '<p class="text-xs text-center">Loading History...</p>';
 
       const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
-      const histRef = noteDoc.collection('history');
-
-      const rtSnap = await histRef.where('type', '==', 'realtime').orderBy('timestamp', 'desc').limit(1).get();
-      const dySnap = await histRef.where('type', '==', 'daily').orderBy('timestamp', 'desc').limit(1).get();
+      const snap = await noteDoc.collection('history_manual').orderBy('timestamp', 'desc').get();
 
       list.innerHTML = '';
-      const renderBtn = (snap, label, col) => {
-        if(snap.empty) return;
-        const d = snap.docs[0].data();
-        const btn = document.createElement('button');
-        btn.className = `w-full p-4 rounded-xl border border-${col}-900 bg-${col}-900/10 text-left`;
-        btn.innerHTML = `<span class="text-[10px] font-bold text-${col}-400 uppercase">${label}</span><br><span class="text-xs">${d.timestamp.toDate().toLocaleString()}</span>`;
-        btn.onclick = () => { if(confirm(`Pulihkan ${label}?`)) { document.getElementById('editor').innerHTML = d.content; modal.classList.add('hidden'); }};
-        list.appendChild(btn);
+      if(snap.empty) {
+        list.innerHTML = '<p class="text-center text-xs opacity-50 p-10">Tiada sejarah manual yang disimpan.</p>';
+        return;
       }
-      renderBtn(rtSnap, "Versi Tadi (Real-time)", "blue");
-      renderBtn(dySnap, "Versi Semalam (24 Jam)", "emerald");
-      if(list.innerHTML === '') list.innerHTML = '<p class="text-center text-xs opacity-50">Tiada sejarah.</p>';
+
+      snap.forEach(doc => {
+        const d = doc.data();
+        const btn = document.createElement('button');
+        btn.className = `w-full p-4 rounded-xl border border-indigo-900 bg-indigo-900/10 text-left mb-2`;
+        btn.innerHTML = `<span class="text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">SIMPANAN MANUAL</span><br><span class="text-xs">${d.timestamp?.toDate().toLocaleString() || 'Baru'}</span>`;
+        btn.onclick = () => { if(confirm(`Pulihkan versi manual ini?`)) { document.getElementById('editor').innerHTML = d.content; modal.classList.add('hidden'); }};
+        list.appendChild(btn);
+      });
     }
 
-    // --- UTILS ---
+    // --- TOOLS ---
     document.getElementById('btnHistory').onclick = () => toggleHistory(true);
     document.getElementById('btnBackToFolders').onclick = () => showView('folders');
+    function doCmd(c,v=null){ document.execCommand(c,false,v); document.getElementById('editor').focus(); }
     async function editTitle(p,id,o,cb){ const n = prompt('Tukar:',o); if(n && n!==o){ await db.collection('users').doc(state.uid).collection(p).doc(id).update({title:n}); cb(); } }
     async function deleteItem(p,id,cb){ if(confirm('Padam?')){ await db.collection('users').doc(state.uid).collection(p).doc(id).delete(); cb(); } }
     document.getElementById('btnAddFile').onclick = async () => { const t = prompt('Fail Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }};
     document.getElementById('btnAddFolder').onclick = async () => { const t = prompt('Folder Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }};
-    function doCmd(c,v=null){ document.execCommand(c,false,v); document.getElementById('editor').focus(); }
   </script>
 </body>
 </html>
