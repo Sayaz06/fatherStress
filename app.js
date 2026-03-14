@@ -34,24 +34,28 @@ const filesRef = () => db.collection('users').doc(state.user.uid).collection('fi
 const foldersRef = (fId) => filesRef().doc(fId).collection('folders');
 const notesRef = (fId, folId) => foldersRef(fId).doc(folId).collection('notes');
 
-// --- RENDERER (Dibetulkan Susunan) ---
+// --- RENDERER (Susunan Abjad & Angka A-Z) ---
 function renderCleanItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
     targetEl.innerHTML = '';
-    snapshot.forEach(doc => {
-        const data = doc.data();
+    // Ambil data dan susun secara manual (A-Z)
+    const items = [];
+    snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+    items.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
+
+    items.forEach(item => {
         const card = document.createElement('div');
         card.className = "clean-card";
         const titleArea = document.createElement('textarea');
         titleArea.className = "title-textarea";
-        titleArea.value = data.title || '';
+        titleArea.value = item.title || '';
         titleArea.rows = 1;
         const autoHeight = () => { titleArea.style.height = 'auto'; titleArea.style.height = titleArea.scrollHeight + 'px'; };
         titleArea.addEventListener('input', autoHeight);
-        titleArea.addEventListener('change', () => onUpdate(doc.id, titleArea.value));
+        titleArea.addEventListener('change', () => onUpdate(item.id, titleArea.value));
         const footer = document.createElement('div');
         footer.className = "flex items-center gap-2 mt-5 pt-4 border-t border-slate-800/50 justify-end";
-        const btnOpen = createActionBtn("📝 BUKA", "bg-slate-800", () => onOpen(doc.id, data.title));
-        const btnDelete = createActionBtn("🗑️", "bg-red-900/10 text-red-500", () => onDelete(doc.id));
+        const btnOpen = createActionBtn("📝 BUKA", "bg-slate-800", () => onOpen(item.id, item.title));
+        const btnDelete = createActionBtn("🗑️", "bg-red-900/10 text-red-500", () => onDelete(item.id));
         footer.append(btnOpen, btnDelete);
         card.append(titleArea, footer);
         targetEl.append(card);
@@ -65,9 +69,9 @@ function createActionBtn(text, cls, fn) {
     b.innerHTML = text; b.onclick = fn; return b;
 }
 
-// --- LOGIC (Urutan desc supaya yang baru di atas) ---
+// --- LOGIC (Load) ---
 async function loadFiles() {
-    const snap = await filesRef().orderBy('createdAt', 'desc').get();
+    const snap = await filesRef().get(); // Susunan dibuat di renderCleanItems
     renderCleanItems(snap, document.getElementById('files-list'), openFile, (id, t) => filesRef().doc(id).update({title: t}), deleteFile);
 }
 
@@ -80,13 +84,13 @@ function openFile(id, title) {
 async function deleteFile(id) { if(confirm("Padam fail?")) { await filesRef().doc(id).delete(); loadFiles(); } }
 
 async function loadFolders() {
-    const snap = await foldersRef(state.currentFileId).orderBy('createdAt', 'desc').get();
+    const snap = await foldersRef(state.currentFileId).get();
     renderCleanItems(snap, document.getElementById('folders-list'), openFolder, (id, t) => foldersRef(state.currentFileId).doc(id).update({title: t}), deleteFolder);
 }
 
 async function deleteFolder(id) { if(confirm("Padam folder?")) { await foldersRef(state.currentFileId).doc(id).delete(); loadFolders(); } }
 
-// --- LOGIK HISTORY (IKUT SLOT MASA) ---
+// --- LOGIK HISTORY (Kunci Mengikut Hari/Minggu) ---
 async function openFolder(id, title) {
     state.currentFolderId = id;
     document.getElementById('current-folder-name').innerText = title;
@@ -105,11 +109,11 @@ async function openFolder(id, title) {
 function renderHistorySlots(historyObj) {
     historyList.innerHTML = '';
     const slots = [
-        { key: 'slot3Days', label: '3 Hari Lepas' },
-        { key: 'slot2Days', label: '2 Hari Lepas' },
-        { key: 'slot4Hours', label: '4 Jam Lepas' },
-        { key: 'slot1Hour', label: '1 Jam Terakhir' },
-        { key: 'slotRealtime', label: 'Real-time (Edit Terkini)' }
+        { key: 'lastWeek', label: 'Minggu Lepas' },
+        { key: 'yesterday', label: 'Semalam' },
+        { key: 'fourHours', label: '4 Jam Lepas' },
+        { key: 'oneHour', label: '1 Jam Lepas' },
+        { key: 'realtime', label: 'Terkini (Real-time)' }
     ];
 
     slots.forEach(slot => {
@@ -118,7 +122,7 @@ function renderHistorySlots(historyObj) {
             div.className = "flex items-center justify-between p-4 rounded-2xl bg-slate-800/30 border border-slate-800 text-xs";
             div.innerHTML = `<span class="text-slate-400 font-bold uppercase">${slot.label}</span> <button class="px-3 py-1 bg-indigo-600 rounded-lg font-bold">RESTORE</button>`;
             div.querySelector('button').onclick = async () => {
-                if(confirm(`Restore versi ${slot.label}?`)) {
+                if(confirm(`Pulihkan versi ${slot.label}?`)) {
                     await notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId).update({ content: historyObj[slot.key].content });
                 }
             };
@@ -130,7 +134,7 @@ function renderHistorySlots(historyObj) {
 // Auto Save & History Manager
 let saveTimer;
 editor.oninput = () => {
-    saveStatus.innerText = "MENUNGGU...";
+    saveStatus.innerText = "MENAIP...";
     clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
         if (editor.innerHTML === state.lastSavedContent) return;
@@ -140,19 +144,33 @@ editor.oninput = () => {
         const doc = await docRef.get();
         const data = doc.data();
         const history = data.history || {};
-        const now = Date.now();
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
 
-        // Logik Penentuan Slot
-        const diffHours = (now - (data.updatedAt?.toMillis() || now)) / 3600000;
+        // 1. Sentiasa update Real-time (Setiap kali anda taip)
+        history.realtime = { content: state.lastSavedContent, date: todayStr };
 
-        // Sentiasa update Real-time
-        history.slotRealtime = { content: state.lastSavedContent, time: firebase.firestore.Timestamp.now() };
+        // 2. Kunci slot mengikut sela masa (Hanya update jika slot itu kosong atau tarikh dah berubah)
+        
+        // Slot Semalam (Kunci kandungan pertama yang dijumpai pada hari baru)
+        if (!history.yesterday || (history.realtime.date !== todayStr)) {
+            // Sebelum realtime diupdate ke hari ini, simpan kandungan hari lepas ke slot yesterday
+            history.yesterday = { content: history.realtime.content, date: history.realtime.date };
+        }
 
-        // Slot lain hanya diisi mengikut masa berlalu (snapshot)
-        if (!history.slot1Hour || diffHours >= 1) history.slot1Hour = { content: state.lastSavedContent, time: firebase.firestore.Timestamp.now() };
-        if (!history.slot4Hours || diffHours >= 4) history.slot4Hours = { content: state.lastSavedContent, time: firebase.firestore.Timestamp.now() };
-        if (!history.slot2Days || diffHours >= 48) history.slot2Days = { content: state.lastSavedContent, time: firebase.firestore.Timestamp.now() };
-        if (!history.slot3Days || diffHours >= 72) history.slot3Days = { content: state.lastSavedContent, time: firebase.firestore.Timestamp.now() };
+        // Slot Minggu Lepas (Hanya update sekali seminggu)
+        const oneWeekAgo = new Date(); oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        const weekStr = oneWeekAgo.toISOString().split('T')[0];
+        if (!history.lastWeek || (history.lastWeek.date < weekStr)) {
+            history.lastWeek = { content: state.lastSavedContent, date: todayStr };
+        }
+
+        // Slot Jam (Snapshots)
+        const lastUpdate = data.updatedAt?.toMillis() || Date.now();
+        const diffHours = (Date.now() - lastUpdate) / 3600000;
+        
+        if (!history.oneHour || diffHours >= 1) history.oneHour = { content: state.lastSavedContent };
+        if (!history.fourHours || diffHours >= 4) history.fourHours = { content: state.lastSavedContent };
 
         await docRef.update({ content: editor.innerHTML, history: history, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
         state.lastSavedContent = editor.innerHTML;
