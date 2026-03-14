@@ -34,25 +34,19 @@ const filesRef = () => db.collection('users').doc(state.user.uid).collection('fi
 const foldersRef = (fId) => filesRef().doc(fId).collection('folders');
 const notesRef = (fId, folId) => foldersRef(fId).doc(folId).collection('notes');
 
-// --- RENDERER (DIUBAH: SUSUNAN ABJAD & ANGKA TEGAR) ---
+// --- RENDERER DENGAN BUTTON EDIT KHUSUS ---
 function renderCleanItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
     targetEl.innerHTML = '';
-    
-    // 1. Tukar snapshot ke Array
     let items = [];
-    snapshot.forEach(doc => {
-        items.push({ id: doc.id, ...doc.data() });
-    });
+    snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
 
-    // 2. Sorting Tegar: Angka -> Abjad (A-Z)
-    // Menggunakan numeric: true supaya "10" duduk selepas "2"
+    // SUSUNAN TEGAR: Angka & Abjad A-Z
     items.sort((a, b) => {
         let titleA = (a.title || "").toLowerCase();
         let titleB = (b.title || "").toLowerCase();
         return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
     });
 
-    // 3. Paparkan Item yang telah disusun
     items.forEach(item => {
         const card = document.createElement('div');
         card.className = "clean-card";
@@ -61,26 +55,34 @@ function renderCleanItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
         titleArea.className = "title-textarea";
         titleArea.value = item.title || '';
         titleArea.rows = 1;
-        
+        titleArea.readOnly = true; // Kunci supaya tak boleh edit terus
+
         const autoHeight = () => { 
             titleArea.style.height = 'auto'; 
             titleArea.style.height = titleArea.scrollHeight + 'px'; 
         };
         
-        titleArea.addEventListener('input', autoHeight);
-        titleArea.addEventListener('change', () => {
-            onUpdate(item.id, titleArea.value);
-            // Refresh senarai selepas tukar nama untuk susun semula kedudukan
-            if(state.currentFolderId) loadFolders(); else loadFiles();
-        });
-
         const footer = document.createElement('div');
         footer.className = "flex items-center gap-2 mt-5 pt-4 border-t border-slate-800/50 justify-end";
         
         const btnOpen = createActionBtn("📝 BUKA", "bg-slate-800", () => onOpen(item.id, item.title));
+        
+        // BUTTON EDIT TAJUK KHUSUS
+        const btnEditTitle = createActionBtn("✏️ TAJUK", "bg-slate-800 text-blue-400", () => {
+            const newTitle = prompt("Masukkan tajuk baharu:", item.title);
+            if (newTitle !== null && newTitle.trim() !== "") {
+                onUpdate(item.id, newTitle.trim());
+                if(state.currentFileId && views.folders.classList.contains('hidden')) {
+                     loadFiles();
+                } else {
+                     loadFolders();
+                }
+            }
+        });
+
         const btnDelete = createActionBtn("🗑️", "bg-red-900/10 text-red-500", () => onDelete(item.id));
         
-        footer.append(btnOpen, btnDelete);
+        footer.append(btnOpen, btnEditTitle, btnDelete);
         card.append(titleArea, footer);
         targetEl.append(card);
         setTimeout(autoHeight, 0);
@@ -93,9 +95,8 @@ function createActionBtn(text, cls, fn) {
     b.innerHTML = text; b.onclick = fn; return b;
 }
 
-// --- LOGIC (Load data tanpa terikat susunan tarikh Firebase) ---
+// --- LOGIC FUNCTIONS ---
 async function loadFiles() {
-    // Kita tarik semua, sorting dibuat dalam renderCleanItems
     const snap = await filesRef().get(); 
     renderCleanItems(snap, document.getElementById('files-list'), openFile, (id, t) => filesRef().doc(id).update({title: t}), deleteFile);
 }
@@ -140,7 +141,6 @@ function renderHistorySlots(historyObj) {
         { key: 'oneHour', label: '1 Jam Lepas' },
         { key: 'realtime', label: 'Terkini (Real-time)' }
     ];
-
     slots.forEach(slot => {
         if (historyObj[slot.key]) {
             const div = document.createElement('div');
@@ -172,10 +172,8 @@ editor.oninput = () => {
         const now = new Date();
         const todayStr = now.toISOString().split('T')[0];
 
-        // Update Real-time
         history.realtime = { content: state.lastSavedContent, date: todayStr };
 
-        // Logik Kunci Sejarah Kekal
         if (!history.yesterday || (history.realtime.date !== todayStr)) {
             history.yesterday = { content: history.realtime.content, date: history.realtime.date };
         }
@@ -195,7 +193,7 @@ editor.oninput = () => {
     }, 2000);
 };
 
-// Toolbar & Navigation
+// Toolbar & Nav
 document.querySelectorAll('[data-action]').forEach(b => { b.onclick = () => { document.execCommand(b.dataset.action); editor.focus(); }; });
 document.getElementById('color-picker').oninput = (e) => document.execCommand('foreColor', false, e.target.value);
 document.getElementById('btn-size-up').onclick = () => document.execCommand('fontSize', false, '5');
@@ -206,16 +204,10 @@ document.getElementById('btn-back-folders').onclick = () => showPage('folders');
 
 document.getElementById('btn-add-file').onclick = async () => { 
     const t = prompt("Nama fail?"); 
-    if(t) {
-        await filesRef().add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); 
-        loadFiles(); 
-    }
+    if(t) { await filesRef().add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }
 };
 
 document.getElementById('btn-add-folder').onclick = async () => { 
     const t = prompt("Nama folder?"); 
-    if(t) {
-        await foldersRef(state.currentFileId).add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); 
-        loadFolders(); 
-    }
+    if(t) { await foldersRef(state.currentFileId).add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }
 };
