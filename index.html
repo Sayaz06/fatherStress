@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
-  <title>Wan-Law v5 Pro</title>
+  <title>Wan-Law v6 Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -17,13 +17,25 @@
       font-size: 16px; line-height: 1.6; word-break: break-word;
     }
     .hidden { display: none !important; }
-    .break-text { word-break: break-word; overflow-wrap: break-word; white-space: normal; }
+    /* Animasi Progress Bar */
+    .progress-flow {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #a855f7, #6366f1);
+      background-size: 200% 100%;
+      animation: flow 1.5s linear infinite;
+      transition: width 0.3s ease;
+    }
+    @keyframes flow {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
   </style>
 </head>
 <body class="min-h-screen w-full">
 
   <header class="w-full flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/80 sticky top-0 z-50">
-    <h1 class="text-lg font-bold text-indigo-400">Wan-Law <span class="text-white text-xs font-normal">v5 Pro</span></h1>
+    <h1 class="text-lg font-bold text-indigo-400">Wan-Law <span class="text-white text-xs font-normal">v6 Pro</span></h1>
     <button id="btnLogout" class="hidden px-2 py-1 rounded bg-red-900/20 text-red-400 text-[10px] border border-red-900/50">Logout</button>
   </header>
 
@@ -63,9 +75,13 @@
         </div>
       </div>
 
+      <div id="saveLoader" class="w-full h-1 bg-slate-800 hidden overflow-hidden mb-1">
+        <div id="progressBar" class="progress-flow"></div>
+      </div>
+
       <div class="flex flex-wrap items-center gap-1 p-2 bg-slate-800 rounded-t-xl border-x border-t border-slate-700">
-        <button title="Undo" class="w-9 h-9 flex items-center justify-center bg-slate-900 rounded font-bold hover:bg-slate-600" onclick="doCmd('undo')">↩</button>
-        <button title="Redo" class="w-9 h-9 flex items-center justify-center bg-slate-900 rounded font-bold hover:bg-slate-600" onclick="doCmd('redo')">↪</button>
+        <button title="Undo" class="w-9 h-9 flex items-center justify-center bg-slate-900 rounded hover:bg-slate-600" onclick="doCmd('undo')">↩</button>
+        <button title="Redo" class="w-9 h-9 flex items-center justify-center bg-slate-900 rounded hover:bg-slate-600" onclick="doCmd('redo')">↪</button>
         <div class="h-6 w-[1px] bg-slate-600 mx-1"></div>
         <button class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold" onclick="doCmd('bold')">B</button>
         <button class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded underline font-bold" onclick="doCmd('underline')">U</button>
@@ -80,7 +96,7 @@
       <div id="modalHistory" class="fixed inset-0 bg-black/90 z-[100] hidden flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
           <div class="p-4 border-b border-slate-800 flex justify-between bg-slate-800/50">
-            <h4 class="font-bold text-sm">SEJARAH MANUAL</h4>
+            <h4 class="font-bold text-sm uppercase">Manual Snapshots</h4>
             <button onclick="toggleHistory(false)" class="text-slate-400 px-2 text-xl">&times;</button>
           </div>
           <div id="historyList" class="p-4 flex flex-col gap-3 max-h-[400px] overflow-y-auto"></div>
@@ -118,9 +134,9 @@
     document.getElementById('btnGoogle').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
     document.getElementById('btnLogout').onclick = () => auth.signOut();
 
-    // --- CRUD ---
+    // --- CRUD (Susunan ASC - Ikut Ciptaan Awal) ---
     async function loadFiles() {
-      const snap = await db.collection('users').doc(state.uid).collection('files').orderBy('createdAt', 'desc').get();
+      const snap = await db.collection('users').doc(state.uid).collection('files').orderBy('createdAt', 'asc').get();
       const list = document.getElementById('listFiles'); list.innerHTML = '';
       snap.forEach(doc => {
         const d = doc.data();
@@ -136,7 +152,7 @@
     }
 
     async function loadFolders() {
-      const snap = await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').orderBy('createdAt', 'desc').get();
+      const snap = await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').orderBy('createdAt', 'asc').get();
       const list = document.getElementById('listFolders'); list.innerHTML = '';
       snap.forEach(doc => {
         const d = doc.data();
@@ -165,33 +181,51 @@
       }
     }
 
-    // --- AUTO-SAVE (DATABASE UTAMA) ---
+    // --- AUTO-SAVE ---
     document.getElementById('editor').oninput = () => {
       clearTimeout(state.saveTimer);
       state.saveTimer = setTimeout(async () => {
         const content = document.getElementById('editor').innerHTML;
         const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
         await noteDoc.update({ content, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-        document.getElementById('saveStatus').textContent = 'Cloud saved';
+        document.getElementById('saveStatus').textContent = 'Cloud synced';
         setTimeout(() => { document.getElementById('saveStatus').textContent = ''; }, 1500);
-      }, 5000); // 5 saat auto-save ke database utama
+      }, 5000);
     };
 
-    // --- MANUAL SEJARAH (HANYA SIMPAN BILA TEKAN) ---
+    // --- MANUAL SEJARAH DENGAN GAME LOADER ---
     document.getElementById('btnManualSave').onclick = async () => {
       const content = document.getElementById('editor').innerHTML;
       if(!content) return;
       
-      document.getElementById('saveStatus').textContent = 'Storing history...';
+      const loader = document.getElementById('saveLoader');
+      const bar = document.getElementById('progressBar');
+      
+      loader.classList.remove('hidden');
+      bar.style.width = '0%';
+      
+      // Animasi palsu biar nampak macam tengah proses
+      setTimeout(() => bar.style.width = '40%', 100);
+      setTimeout(() => bar.style.width = '70%', 400);
+
       const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
       
-      await noteDoc.collection('history_manual').add({
-        content: content,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      
-      alert('Versi ini telah disimpan ke dalam Sejarah!');
-      document.getElementById('saveStatus').textContent = '';
+      try {
+        await noteDoc.collection('history_manual').add({
+          content: content,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        bar.style.width = '100%';
+        setTimeout(() => {
+          loader.classList.add('hidden');
+          document.getElementById('saveStatus').textContent = 'Sejarah disimpan!';
+          setTimeout(() => document.getElementById('saveStatus').textContent = '', 2000);
+        }, 5000);
+      } catch (e) {
+        loader.classList.add('hidden');
+        alert('Gagal simpan sejarah.');
+      }
     };
 
     async function toggleHistory(show) {
@@ -199,14 +233,14 @@
       if (!show) return modal.classList.add('hidden');
       modal.classList.remove('hidden');
       const list = document.getElementById('historyList');
-      list.innerHTML = '<p class="text-xs text-center">Loading History...</p>';
+      list.innerHTML = '<p class="text-xs text-center animate-pulse">Memuatkan Sejarah...</p>';
 
       const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
       const snap = await noteDoc.collection('history_manual').orderBy('timestamp', 'desc').get();
 
       list.innerHTML = '';
       if(snap.empty) {
-        list.innerHTML = '<p class="text-center text-xs opacity-50 p-10">Tiada sejarah manual yang disimpan.</p>';
+        list.innerHTML = '<p class="text-center text-xs opacity-50 p-10">Tiada sejarah dijumpai.</p>';
         return;
       }
 
@@ -214,8 +248,8 @@
         const d = doc.data();
         const btn = document.createElement('button');
         btn.className = `w-full p-4 rounded-xl border border-indigo-900 bg-indigo-900/10 text-left mb-2`;
-        btn.innerHTML = `<span class="text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">SIMPANAN MANUAL</span><br><span class="text-xs">${d.timestamp?.toDate().toLocaleString() || 'Baru'}</span>`;
-        btn.onclick = () => { if(confirm(`Pulihkan versi manual ini?`)) { document.getElementById('editor').innerHTML = d.content; modal.classList.add('hidden'); }};
+        btn.innerHTML = `<span class="text-[9px] font-bold text-indigo-400 uppercase">Manual Snapshot</span><br><span class="text-xs">${d.timestamp?.toDate().toLocaleString() || 'Baru'}</span>`;
+        btn.onclick = () => { if(confirm(`Pulihkan versi ini?`)) { document.getElementById('editor').innerHTML = d.content; modal.classList.add('hidden'); }};
         list.appendChild(btn);
       });
     }
@@ -224,7 +258,7 @@
     document.getElementById('btnHistory').onclick = () => toggleHistory(true);
     document.getElementById('btnBackToFolders').onclick = () => showView('folders');
     function doCmd(c,v=null){ document.execCommand(c,false,v); document.getElementById('editor').focus(); }
-    async function editTitle(p,id,o,cb){ const n = prompt('Tukar:',o); if(n && n!==o){ await db.collection('users').doc(state.uid).collection(p).doc(id).update({title:n}); cb(); } }
+    async function editTitle(p,id,o,cb){ const n = prompt('Tukar Nama:',o); if(n && n!==o){ await db.collection('users').doc(state.uid).collection(p).doc(id).update({title:n}); cb(); } }
     async function deleteItem(p,id,cb){ if(confirm('Padam?')){ await db.collection('users').doc(state.uid).collection(p).doc(id).delete(); cb(); } }
     document.getElementById('btnAddFile').onclick = async () => { const t = prompt('Fail Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }};
     document.getElementById('btnAddFolder').onclick = async () => { const t = prompt('Folder Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }};
