@@ -19,91 +19,134 @@
   </script>
 
   <style>
-    /* Sembunyikan scrollbar tapi fungsi tetap ada */
+    /* Reset & Base UI */
     .no-scrollbar::-webkit-scrollbar { display: none; }
-    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     
     /* Editor Placeholder */
     .editor-container [contenteditable]:empty:before {
       content: attr(placeholder);
-      color: #64748b;
+      color: #475569;
     }
+
+    /* Textarea Tajuk: Bersih & Auto-Wrap */
+    .title-textarea {
+      background: transparent !important;
+      border: none !important;
+      outline: none !important;
+      resize: none !important;
+      width: 100%;
+      display: block;
+      color: #60a5fa; /* Biru cerah seperti contoh */
+      font-weight: 700;
+      font-size: 1.25rem;
+      line-height: 1.4;
+      padding: 0;
+      margin: 0;
+      overflow: hidden;
+    }
+    
+    /* Kad Gaya Lebar Penuh */
+    .clean-card {
+      width: 100%;
+      background: rgba(30, 41, 59, 0.4);
+      padding: 1.5rem;
+      border-radius: 1.25rem;
+      border: 1px solid #1e293b;
+      margin-bottom: 1rem;
+      transition: all 0.2s ease;
+    }
+    .clean-card:hover {
+      border-color: #334155;
+      background: rgba(30, 41, 59, 0.6);
+    }
+
+    /* Toolbar Editor */
+    .toolbar-btn {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.75rem;
+      transition: all 0.2s;
+    }
+    .toolbar-btn:hover { background: #334155; }
   </style>
 </head>
-<body class="min-h-screen bg-[#0f172a] text-white font-sans">
+<body class="min-h-screen bg-[#0f172a] text-slate-200 font-sans">
 
   <header class="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0f172a]/95 backdrop-blur sticky top-0 z-50">
-    <h1 class="text-xl font-bold tracking-wide">Original Wan-Law</h1>
-    <button id="btn-logout" class="hidden px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm border border-slate-700 transition-all">
-      Log keluar
+    <h1 class="text-xl font-bold tracking-tight text-white">Original Wan-Law</h1>
+    <button id="btn-logout" class="hidden px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold border border-slate-700 transition-all">
+      LOG KELUAR
     </button>
   </header>
 
   <main class="max-w-4xl mx-auto p-4 md:p-6">
 
     <section id="view-login" class="mt-20 flex justify-center">
-      <div class="w-full max-w-md bg-slate-800/50 p-8 rounded-2xl border border-slate-700 shadow-2xl">
-        <h2 class="text-xl font-bold mb-2">Masuk akaun</h2>
-        <p class="text-slate-400 mb-6 text-sm">Gunakan Google untuk akses nota skrip & undang-undang anda.</p>
-        <button id="btn-google" class="w-full py-3 rounded-xl bg-slate-700 hover:bg-slate-600 font-bold border border-slate-600 transition-all">
-          Log masuk dengan Google
+      <div class="w-full max-w-md bg-slate-800/30 p-8 rounded-3xl border border-slate-800 shadow-2xl text-center">
+        <h2 class="text-2xl font-bold text-white mb-2">Masuk Akaun</h2>
+        <p class="text-slate-400 mb-8 text-sm">Simpan skrip & nota anda dengan selamat.</p>
+        <button id="btn-google" class="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-bold shadow-lg shadow-indigo-500/20 transition-all">
+          Masuk dengan Google
         </button>
       </div>
     </section>
 
     <section id="view-home" class="hidden space-y-6">
-      <div class="flex gap-2">
-        <input id="search-files" type="text" placeholder="Cari fail..." class="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600" />
-        <button id="btn-add-file" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold transition-all text-sm">
-          + Fail
+      <div class="flex gap-2 bg-slate-900/50 p-2 rounded-2xl border border-slate-800">
+        <input id="search-files" type="text" placeholder="Cari fail..." class="flex-1 px-4 py-2 bg-transparent outline-none text-sm" />
+        <button id="btn-add-file" class="px-6 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-xs whitespace-nowrap">
+          + FAIL
         </button>
       </div>
-      <div id="files-list" class="grid gap-4"></div>
+      <div id="files-list"></div>
     </section>
 
     <section id="view-folders" class="hidden space-y-6">
       <div class="flex items-center justify-between gap-4">
-        <button id="btn-back-home" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm border border-slate-700">← Kembali</button>
-        <h2 id="current-file-name" class="flex-1 text-right font-bold text-blue-400 truncate"></h2>
+        <button id="btn-back-home" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold border border-slate-700">← KEMBALI</button>
+        <h2 id="current-file-name" class="flex-1 text-right font-bold text-blue-400 truncate text-sm uppercase tracking-widest"></h2>
       </div>
-      <div class="flex gap-2">
-        <input id="search-folders" type="text" placeholder="Cari folder..." class="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none" />
-        <button id="btn-add-folder" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-sm">
-          + Folder
+      <div class="flex gap-2 bg-slate-900/50 p-2 rounded-2xl border border-slate-800">
+        <input id="search-folders" type="text" placeholder="Cari folder..." class="flex-1 px-4 py-2 bg-transparent outline-none text-sm" />
+        <button id="btn-add-folder" class="px-6 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-xs whitespace-nowrap">
+          + FOLDER
         </button>
       </div>
-      <div id="folders-list" class="grid gap-4"></div>
+      <div id="folders-list"></div>
     </section>
 
     <section id="view-note" class="hidden space-y-4">
       <div class="flex items-center justify-between gap-4 sticky top-[73px] bg-[#0f172a] py-2 z-40">
-        <button id="btn-back-folders" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm border border-slate-700">← Kembali</button>
-        <h2 id="current-folder-name" class="flex-1 text-right font-bold text-blue-400 truncate"></h2>
+        <button id="btn-back-folders" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold border border-slate-700">← KEMBALI</button>
+        <h2 id="current-folder-name" class="flex-1 text-right font-bold text-blue-400 truncate text-sm uppercase tracking-widest"></h2>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2 p-2 bg-slate-800/50 rounded-2xl border border-slate-700">
-        <button data-action="bold" class="w-10 h-10 rounded-lg hover:bg-slate-700 font-bold">B</button>
-        <button data-action="underline" class="w-10 h-10 rounded-lg hover:bg-slate-700 underline">U</button>
-        <input id="color-picker" type="color" class="w-8 h-8 bg-transparent border-none cursor-pointer" />
-        <div class="h-6 w-px bg-slate-700"></div>
-        <button id="btn-size-down" class="w-10 h-10 rounded-lg hover:bg-slate-700">−</button>
-        <button id="btn-size-up" class="w-10 h-10 rounded-lg hover:bg-slate-700">+</button>
-        <button id="btn-export-json" class="ml-auto px-3 py-1.5 text-[10px] uppercase font-bold rounded-lg bg-slate-700 hover:bg-slate-600">Export</button>
+      <div class="flex flex-wrap items-center gap-1 p-2 bg-slate-800/40 rounded-2xl border border-slate-800">
+        <button data-action="bold" class="toolbar-btn font-bold">B</button>
+        <button data-action="underline" class="toolbar-btn underline">U</button>
+        <input id="color-picker" type="color" class="w-8 h-8 bg-transparent border-none cursor-pointer mx-2" />
+        <div class="h-6 w-px bg-slate-700 mx-2"></div>
+        <button id="btn-size-down" class="toolbar-btn text-lg">−</button>
+        <button id="btn-size-up" class="toolbar-btn text-lg">+</button>
+        <button id="btn-export-json" class="ml-auto px-4 py-2 text-[10px] font-bold rounded-xl bg-slate-700 hover:bg-slate-600">EXPORT</button>
       </div>
 
-      <div id="editor" class="editor-container min-h-[450px] p-6 rounded-2xl bg-slate-800/20 border border-slate-800 focus:outline-none text-slate-200 leading-relaxed shadow-inner" contenteditable="true" placeholder="Tulis nota anda di sini..."></div>
+      <div id="editor" class="editor-container min-h-[500px] p-8 rounded-3xl bg-slate-800/10 border border-slate-800 focus:outline-none text-slate-200 leading-relaxed text-lg" contenteditable="true" placeholder="Tulis sesuatu yang hebat..."></div>
       
-      <p id="save-status" class="text-[10px] uppercase tracking-widest text-slate-500 font-bold text-center">Auto-simpan aktif</p>
+      <p id="save-status" class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold text-center mt-4">Auto-simpan Aktif</p>
 
-      <div class="mt-10 p-5 rounded-2xl bg-slate-800/10 border border-slate-800">
-        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Sejarah (5 Terakhir)</h3>
-        <div id="history-list" class="space-y-2"></div>
+      <div class="mt-12 p-6 rounded-3xl bg-slate-800/10 border border-slate-800">
+        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-6">Sejarah Versi (5 Terakhir)</h3>
+        <div id="history-list" class="space-y-3"></div>
       </div>
     </section>
 
   </main>
 
-  <footer class="py-10 text-center text-[10px] text-slate-600 uppercase tracking-[0.2em]">Very Good Job!</footer>
+  <footer class="py-12 text-center text-[10px] text-slate-600 uppercase tracking-[0.3em]">Very Good Job!</footer>
 
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
