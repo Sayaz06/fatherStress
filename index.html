@@ -9,129 +9,72 @@
 
   <style>
     :root{
-      --bg:#020617;         /* Slate/Navy gelap */
-      --text:#e5e7eb;       /* Gray-100 terang */
-      --muted:#9ca3af;      /* Subtext */
-      --border:#1f2937;     /* Cool Gray */
-      --border2:#4b5563;    /* Slate */
-      --grad1:#6366f1;      /* Indigo */
-      --grad2:#8b5cf6;      /* Violet */
+      --bg:#020617; --text:#e5e7eb; --muted:#9ca3af;
+      --border:#1f2937; --border2:#4b5563;
+      --grad1:#6366f1; --grad2:#8b5cf6;
     }
     *{box-sizing:border-box}
-    html,body{height:100%}
     body{
       margin:0; background:var(--bg); color:var(--text);
-      font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial, sans-serif;
+      font-family:system-ui, -apple-system, sans-serif;
     }
-    a{color:inherit; text-decoration:none}
     .container{max-width:900px; margin:0 auto; padding:20px}
-    
-    /* PENYELARASAN TAJUK: Memastikan tajuk panjang turun ke bawah */
-    .title{
-      font-weight:700; font-size:24px; margin:8px 0 16px;
-      word-wrap: break-word; /* Pecahkan perkataan jika terlalu panjang */
-      overflow-wrap: break-word;
-      white-space: normal; /* Benarkan teks turun ke bawah */
-      line-height: 1.3;
-    }
-
     .card{
       background:#0b1220; border:1px solid var(--border);
       border-radius:16px; padding:16px; box-shadow:0 10px 25px rgba(0,0,0,.35);
+    }
+    /* TAJUK UTAMA: Boleh wrap ke bawah */
+    .title{
+      font-weight:700; font-size:24px; margin:8px 0 16px;
+      word-wrap: break-word; white-space: normal; line-height: 1.3;
     }
     .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
     .btn{
       display:inline-flex; align-items:center; justify-content:center;
       padding:10px 14px; border-radius:12px; color:white; border:1px solid transparent;
       background:linear-gradient(135deg, var(--grad1), var(--grad2));
-      box-shadow:0 8px 30px rgba(99,102,241,.35);
-      cursor:pointer; transition:.15s transform ease;
+      cursor:pointer; transition:.15s;
     }
-    .btn:hover{transform:translateY(-1px)}
-    .btn-ghost{
-      background:transparent; border:1px solid var(--border2); color:var(--text)
-    }
-    .btn-danger{
-      background:#7c2d12; border-color:#7c2d12;
-    }
-    .input{
+    .btn-ghost{background:transparent; border:1px solid var(--border2); color:var(--text)}
+    .btn-danger{background:#7c2d12; border:none}
+    
+    .input, .item-textarea {
       width:100%; padding:10px 12px; border-radius:12px;
       background:#0b1220; border:1px solid var(--border2);
-      color:var(--text); outline:none;
+      color:var(--text); outline:none; font-family: inherit;
     }
+
     .list{display:flex; flex-direction:column; gap:10px; margin-top:12px}
-    
-    /* ITEM LIST: Mengendalikan tajuk panjang dalam senarai */
     .item{
-      display:flex; align-items:center; justify-content:space-between;
+      display:flex; flex-direction: column; /* Ubah ke column supaya tajuk panjang ada ruang */
       padding:12px; border-radius:12px; border:1px solid var(--border);
-      background:#0e1626; gap:12px;
+      background:#0e1626; gap:10px;
     }
-    .item-name{
-      flex: 1; 
-      min-width: 0; 
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-      white-space: normal; /* Penting supaya teks tidak sebaris panjang */
-      cursor: pointer;
+    
+    /* Ruang input tajuk dalam list */
+    .item-textarea {
+      background: transparent; border: 1px solid transparent;
+      resize: none; overflow: hidden; font-size: 16px; padding: 5px;
     }
+    .item-textarea:focus { border-color: var(--grad1); background: #020617; }
 
     .toolbar{
       display:flex; gap:8px; flex-wrap:wrap; padding:8px; border:1px solid var(--border);
       border-radius:12px; margin:10px 0; background:#0e1626;
     }
     .editor{
-      min-height:240px; padding:12px; border-radius:12px;
-      border:1px solid var(--border); background:#0b1220; outline:none;
-      line-height: 1.6;
+      min-height:300px; padding:15px; border-radius:12px;
+      border:1px solid var(--border); background:#0b1220; outline:none; line-height: 1.6;
     }
-    .subtext{color:var(--muted); font-size:12px; margin-bottom: 4px;}
-    .header{
-      display:flex; align-items: flex-start; justify-content:space-between; gap:12px; margin-bottom:12px;
-    }
-
-    /* BAHAGIAN SEJARAH (HISTORY) */
-    .history-section {
-      margin-top: 24px;
-      padding-top: 16px;
-      border-top: 1px solid var(--border);
-    }
-    .history-card {
-      background: #0e1626;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-    }
-    .history-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 10px;
-    }
-    .history-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 12px;
-      background: #111827;
-      border-radius: 8px;
-      font-size: 13px;
-      border: 1px solid transparent;
-      transition: 0.2s;
-    }
-    .history-item:hover {
-      border-color: var(--grad1);
-    }
-    .btn-restore {
-      padding: 4px 8px;
-      font-size: 11px;
-      background: var(--border2);
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
+    .subtext{color:var(--muted); font-size:12px}
     .hidden{display:none !important}
-    .divider{border-top:1px solid var(--border); margin:12px 0}
+
+    /* HISTORY STYLES */
+    .history-section { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 15px; }
+    .history-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #111827; padding: 10px; border-radius: 8px; margin-bottom: 5px; font-size: 13px;
+    }
   </style>
 
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -143,77 +86,56 @@
   <div class="container">
     <section id="view-login" class="card">
       <div class="title">Original Wan-Law</div>
-      <p class="subtext">Log masuk dengan akaun Gmail untuk menyimpan cerita & skrip anda secara selamat.</p>
-      <div class="divider"></div>
-      <div class="row">
-        <button id="btn-google" class="btn">Log masuk dengan Google</button>
-      </div>
+      <button id="btn-google" class="btn">Log masuk dengan Google</button>
     </section>
 
     <section id="view-home" class="card hidden">
-      <div class="header">
-        <div class="title">Original Wan-Law</div>
+      <div class="row" style="justify-content: space-between;">
+        <div class="title">Fail Utama</div>
         <button id="btn-logout" class="btn-ghost">Logout</button>
       </div>
-
       <div class="row">
-        <input id="search-files" class="input" style="flex:1" placeholder="Cari Fail…" />
+        <input id="search-files" class="input" style="flex:1" placeholder="Cari Fail..." />
         <button id="btn-add-file" class="btn">Tambah Fail</button>
       </div>
-
       <div id="files-list" class="list"></div>
     </section>
 
     <section id="view-folders" class="card hidden">
-      <div class="header">
-        <div class="title" id="current-file-name" style="font-size: 18px; color: var(--grad1);">Nama Fail</div>
+      <div class="row">
         <button id="btn-back-home" class="btn-ghost">← Kembali</button>
       </div>
-
+      <div class="title" id="current-file-name">Nama Fail</div>
       <div class="row">
         <input id="search-folders" class="input" style="flex:1" placeholder="Cari Folder..." />
         <button id="btn-add-folder" class="btn">Tambah Folder</button>
       </div>
-
       <div id="folders-list" class="list"></div>
     </section>
 
     <section id="view-note" class="card hidden">
-      <div class="header">
-        <div class="title" id="current-folder-name" style="font-size: 18px; color: var(--grad1);">Nama Folder</div>
+      <div class="row">
         <button id="btn-back-folders" class="btn-ghost">← Kembali</button>
       </div>
-
+      <div class="title" id="current-folder-name">Nama Folder</div>
+      
       <div class="toolbar">
         <button class="btn" data-action="bold">B</button>
         <button class="btn" data-action="underline">U</button>
-        <input id="color-picker" type="color" title="Warna Teks" />
+        <input id="color-picker" type="color" />
         <button id="btn-size-down" class="btn">−</button>
         <button id="btn-size-up" class="btn">+</button>
         <button id="btn-export-json" class="btn">Export</button>
       </div>
 
-      <div id="editor" class="editor" contenteditable="true" spellcheck="false" placeholder="Tulis nota anda..."></div>
-      
-      <div class="row" style="margin-top: 10px;">
-        <p class="subtext" id="save-status">Auto-simpan aktif.</p>
-      </div>
+      <div id="editor" class="editor" contenteditable="true" spellcheck="false"></div>
+      <p id="save-status" class="subtext">Auto-simpan aktif.</p>
 
       <div class="history-section">
-        <p class="subtext" style="font-weight: bold;">Sejarah Versi (Klik untuk kembali ke versi asal):</p>
-        <div class="history-card">
-          <div id="history-list" class="history-list">
-            <span class="subtext">Tiada sejarah tersedia lagi.</span>
-          </div>
-        </div>
+        <p><strong>Sejarah (History):</strong></p>
+        <div id="history-list"></div>
       </div>
     </section>
   </div>
-
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js').catch(() => {});
-    }
-  </script>
 </body>
 </html>
