@@ -1,4 +1,4 @@
-// Firebase Setup
+// Firebase Config
 const firebaseConfig = {
     apiKey: "AIzaSyCtxOE42D07yFc9eK3nLMsOy50SmeSErwI",
     authDomain: "fatherstress-9e695.firebaseapp.com",
@@ -14,97 +14,76 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 // DOM References
-const views = {
-    login: document.getElementById('view-login'),
-    home: document.getElementById('view-home'),
-    folders: document.getElementById('view-folders'),
-    note: document.getElementById('view-note')
-};
+const vHome = document.getElementById('view-home'), vFolders = document.getElementById('view-folders'),
+      vNote = document.getElementById('view-note'), vLogin = document.getElementById('view-login');
+const editor = document.getElementById('editor'), historyList = document.getElementById('history-list');
 
-const editor = document.getElementById('editor');
-const historyListDiv = document.getElementById('history-list');
-const saveStatus = document.getElementById('save-status');
+let state = { user: null, currentFileId: null, currentFolderId: null, currentNoteId: null, lastSavedContent: "" };
 
-let state = {
-    user: null,
-    currentFileId: null,
-    currentFolderId: null,
-    currentNoteId: null,
-    lastSavedContent: ""
-};
-
-// Navigation
-function showPage(name) {
-    Object.keys(views).forEach(key => views[key].classList.add('hidden'));
-    views[name].classList.remove('hidden');
-    document.getElementById('btn-logout').classList.toggle('hidden', name === 'login');
+// Show View
+function showPage(view) {
+    [vLogin, vHome, vFolders, vNote].forEach(v => v.classList.add('hidden'));
+    view.classList.remove('hidden');
+    document.getElementById('btn-logout').classList.toggle('hidden', view === vLogin);
 }
 
-// Auth Logic
+// Auth
 auth.onAuthStateChanged(user => {
     state.user = user;
-    if (user) {
-        showPage('home');
-        loadFiles();
-    } else {
-        showPage('login');
-    }
+    if (user) { showPage(vHome); loadFiles(); } else { showPage(vLogin); }
 });
-
 document.getElementById('btn-google').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
 document.getElementById('btn-logout').onclick = () => auth.signOut();
 
-// Firestore Paths
 const getFilesRef = () => db.collection('users').doc(state.user.uid).collection('files');
 const getFoldersRef = (fId) => getFilesRef().doc(fId).collection('folders');
 const getNotesRef = (fId, folId) => getFoldersRef(fId).doc(folId).collection('notes');
 
-// --- Render List Engine (Tajuk Panjang Auto-Wrap) ---
+// --- CLEAN CARD RENDERER (MENGARAH GAMBAR) ---
 function renderItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
     targetEl.innerHTML = '';
     snapshot.forEach(doc => {
         const data = doc.data();
         const card = document.createElement('div');
-        card.className = "flex flex-col gap-3 p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 hover:border-indigo-500/30 transition-all";
+        card.className = "relative bg-[#1e293b]/40 p-5 rounded-2xl border border-slate-800 shadow-xl group transition-all hover:border-slate-700";
 
-        // Input tajuk menggunakan Textarea untuk auto-wrap
+        // TAJUK (BIRU SEPERTI GAMBAR)
         const titleArea = document.createElement('textarea');
-        titleArea.className = "bg-transparent text-lg font-bold text-slate-100 resize-none outline-none focus:text-indigo-400 transition-colors w-full overflow-hidden";
+        titleArea.className = "w-full bg-transparent text-blue-400 text-lg font-bold outline-none resize-none overflow-hidden leading-tight";
         titleArea.value = data.title || '';
         titleArea.rows = 1;
-        
-        // Auto-resize height
-        const adjustHeight = () => {
-            titleArea.style.height = 'auto';
-            titleArea.style.height = titleArea.scrollHeight + 'px';
-        };
-        
-        titleArea.oninput = adjustHeight;
+        titleArea.oninput = () => { titleArea.style.height = 'auto'; titleArea.style.height = titleArea.scrollHeight + 'px'; };
         titleArea.onchange = () => onUpdate(doc.id, titleArea.value);
 
-        const actions = document.createElement('div');
-        actions.className = "flex items-center justify-end gap-2 pt-2 border-t border-slate-700/30";
-        
-        const bOpen = document.createElement('button');
-        bOpen.className = "px-4 py-1.5 text-xs font-bold rounded-lg bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all";
-        bOpen.innerText = "BUKA";
-        bOpen.onclick = () => onOpen(doc.id, titleArea.value);
+        // TEKS PRATONTON (ITALIC SEPERTI GAMBAR)
+        const preview = document.createElement('p');
+        preview.className = "text-sm text-slate-400 italic mt-2 line-clamp-2 leading-relaxed";
+        preview.innerText = data.preview || "Tiada kandungan tersedia...";
 
-        const bDel = document.createElement('button');
-        bDel.className = "px-4 py-1.5 text-xs font-bold rounded-lg bg-red-900/10 text-red-400 hover:bg-red-600 hover:text-white transition-all";
-        bDel.innerText = "PADAM";
-        bDel.onclick = () => onDelete(doc.id);
+        // BUTTONS (HORIZONTAL SEPERTI GAMBAR)
+        const footer = document.createElement('div');
+        footer.className = "flex items-center gap-2 mt-5 pt-4 border-t border-slate-800/50 justify-end";
 
-        actions.append(bOpen, bDel);
-        card.append(titleArea, actions);
+        const btnLatih = createBtn("📝 Latih", "bg-slate-700 hover:bg-slate-600", () => onOpen(doc.id, data.title));
+        const btnTajuk = createBtn("✏️ Tajuk", "bg-slate-700 hover:bg-slate-600", () => titleArea.focus());
+        const btnDelete = createBtn("🗑️", "bg-red-900/30 hover:bg-red-800 text-red-400", () => onDelete(doc.id));
+
+        footer.append(btnLatih, btnTajuk, btnDelete);
+        card.append(titleArea, preview, footer);
         targetEl.append(card);
-        
-        // Initial height adjustment
-        setTimeout(adjustHeight, 10);
+        setTimeout(() => titleArea.oninput(), 0);
     });
 }
 
-// --- Files & Folders Actions ---
+function createBtn(text, cls, fn) {
+    const b = document.createElement('button');
+    b.className = `px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all ${cls}`;
+    b.innerHTML = text;
+    b.onclick = fn;
+    return b;
+}
+
+// --- LOGIC FUNCTIONS (Files/Folders) ---
 async function loadFiles() {
     const snap = await getFilesRef().orderBy('createdAt', 'desc').get();
     renderItems(snap, document.getElementById('files-list'), openFile, (id, t) => getFilesRef().doc(id).update({title: t}), deleteFile);
@@ -113,15 +92,12 @@ async function loadFiles() {
 function openFile(id, title) {
     state.currentFileId = id;
     document.getElementById('current-file-name').innerText = title;
-    showPage('folders');
+    showPage(vFolders);
     loadFolders();
 }
 
 async function deleteFile(id) {
-    if(confirm("Padam fail ini dan semua kandungan di dalamnya?")) {
-        await getFilesRef().doc(id).delete();
-        loadFiles();
-    }
+    if(confirm("Padam fail ini?")) { await getFilesRef().doc(id).delete(); loadFiles(); }
 }
 
 async function loadFolders() {
@@ -130,36 +106,20 @@ async function loadFolders() {
 }
 
 async function deleteFolder(id) {
-    if(confirm("Padam folder ini?")) {
-        await getFoldersRef(state.currentFileId).doc(id).delete();
-        loadFolders();
-    }
+    if(confirm("Padam folder ini?")) { await getFoldersRef(state.currentFileId).doc(id).delete(); loadFolders(); }
 }
 
-// --- Editor & History ---
+// --- NOTE & HISTORY ---
 async function openFolder(id, title) {
     state.currentFolderId = id;
     document.getElementById('current-folder-name').innerText = title;
-    showPage('note');
-
+    showPage(vNote);
     const nRef = getNotesRef(state.currentFileId, id);
     const snap = await nRef.limit(1).get();
-    
-    if (snap.empty) {
-        const d = await nRef.add({ content: '', history: [], updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-        state.currentNoteId = d.id;
-    } else {
-        state.currentNoteId = snap.docs[0].id;
-    }
+    state.currentNoteId = snap.empty ? (await nRef.add({ content: '', history: [] })).id : snap.docs[0].id;
 
-    // Subscribe Live
-    db.collection('users').doc(state.user.uid)
-      .collection('files').doc(state.currentFileId)
-      .collection('folders').doc(state.currentFolderId)
-      .collection('notes').doc(state.currentNoteId)
-      .onSnapshot(doc => {
+    nRef.doc(state.currentNoteId).onSnapshot(doc => {
         const data = doc.data();
-        if (!data) return;
         if (editor.innerHTML !== data.content) {
             editor.innerHTML = data.content || '';
             state.lastSavedContent = data.content;
@@ -169,82 +129,61 @@ async function openFolder(id, title) {
 }
 
 function renderHistoryList(history) {
-    historyListDiv.innerHTML = history.length ? '' : '<p class="text-xs text-slate-600 italic">Tiada sejarah tersedia.</p>';
+    historyList.innerHTML = history.length ? '' : '<p class="text-[10px] text-slate-600 italic">Tiada sejarah.</p>';
     history.slice().reverse().forEach((h, i) => {
-        const timeStr = h.time ? new Date(h.time.seconds * 1000).toLocaleString('ms-MY') : 'Baru tadi';
         const div = document.createElement('div');
-        div.className = "flex items-center justify-between p-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-slate-600 transition-all";
-        div.innerHTML = `
-            <div class="flex flex-col">
-                <span class="text-[10px] font-bold text-slate-500 uppercase">Versi</span>
-                <span class="text-xs text-slate-300">${timeStr}</span>
-            </div>
-            <button class="px-3 py-1 text-[10px] font-bold rounded-md bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all">RESTORE</button>
-        `;
-        div.querySelector('button').onclick = () => restoreHistory(history.length - 1 - i);
-        historyListDiv.appendChild(div);
+        div.className = "flex items-center justify-between p-3 rounded-xl bg-slate-800/50 border border-slate-800 text-xs";
+        div.innerHTML = `<span>Versi ${history.length - i}</span> <button class="px-2 py-1 bg-slate-700 rounded-md font-bold">RESTORE</button>`;
+        div.querySelector('button').onclick = async () => {
+            const content = history[history.length - 1 - i].content;
+            await getNotesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId).update({ content });
+        };
+        historyList.appendChild(div);
     });
 }
 
-async function restoreHistory(index) {
-    if(!confirm("Kembali ke versi ini?")) return;
-    const docRef = getNotesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
-    const doc = await docRef.get();
-    const content = doc.data().history[index].content;
-    await docRef.update({ content });
-}
-
-// Auto Save with History
+// Auto Save
 let saveTimer;
 editor.oninput = () => {
-    saveStatus.innerText = "Menunggu...";
     clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
         if (editor.innerHTML === state.lastSavedContent) return;
-        saveStatus.innerText = "Menyimpan...";
-        
         const docRef = getNotesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
         const doc = await docRef.get();
         let hist = doc.data().history || [];
-        
         if (state.lastSavedContent) {
             hist.push({ content: state.lastSavedContent, time: new Date() });
             if (hist.length > 5) hist.shift();
         }
-
-        await docRef.update({ 
-            content: editor.innerHTML, 
-            history: hist,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
-        });
+        // Update content & preview text
+        const plainText = editor.innerText.substring(0, 150);
+        await docRef.update({ content: editor.innerHTML, history: hist, preview: plainText });
+        
+        // Juga update preview dalam folder untuk paparan di kad
+        await getFoldersRef(state.currentFileId).doc(state.currentFolderId).update({ preview: plainText });
+        
         state.lastSavedContent = editor.innerHTML;
-        saveStatus.innerText = "Auto-simpan aktif";
-    }, 2000);
+    }, 3000);
 };
 
-// Toolbars & Events
-document.querySelectorAll('[data-action]').forEach(btn => {
-    btn.onclick = () => { document.execCommand(btn.dataset.action); editor.focus(); };
+// Toolbar Events
+document.querySelectorAll('[data-action]').forEach(b => {
+    b.onclick = () => { document.execCommand(b.dataset.action); editor.focus(); };
 });
+document.getElementById('color-picker').oninput = (e) => document.execCommand('foreColor', false, e.target.value);
+document.getElementById('btn-size-up').onclick = () => document.execCommand('fontSize', false, '5');
+document.getElementById('btn-size-down').onclick = () => document.execCommand('fontSize', false, '3');
 
-document.getElementById('color-picker').oninput = (e) => {
-    document.execCommand('foreColor', false, e.target.value);
-};
-
-document.getElementById('btn-size-up').onclick = () => document.execCommand('fontSize', false, '4');
-document.getElementById('btn-size-down').onclick = () => document.execCommand('fontSize', false, '2');
+document.getElementById('btn-back-home').onclick = () => showPage(vHome);
+document.getElementById('btn-back-folders').onclick = () => showPage(vFolders);
 
 document.getElementById('btn-add-file').onclick = async () => {
     const t = prompt("Tajuk fail?");
-    if(t) await getFilesRef().add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    if(t) await getFilesRef().add({ title: t, createdAt: new Date() });
     loadFiles();
 };
-
 document.getElementById('btn-add-folder').onclick = async () => {
     const t = prompt("Tajuk folder?");
-    if(t) await getFoldersRef(state.currentFileId).add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    if(t) await getFoldersRef(state.currentFileId).add({ title: t, createdAt: new Date() });
     loadFolders();
 };
-
-document.getElementById('btn-back-home').onclick = () => showPage('home');
-document.getElementById('btn-back-folders').onclick = () => showPage('folders');
