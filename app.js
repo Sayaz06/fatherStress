@@ -1,179 +1,250 @@
-// Firebase Config
+// Firebase Setup
 const firebaseConfig = {
-  apiKey: "AIzaSyCtxOE42D07yFc9eK3nLMsOy50SmeSErwI",
-  authDomain: "fatherstress-9e695.firebaseapp.com",
-  projectId: "fatherstress-9e695",
-  storageBucket: "fatherstress-9e695.firebasestorage.app",
-  messagingSenderId: "147729735248",
-  appId: "1:147729735248:web:f6771fee76727436a0fb55",
-  measurementId: "G-GF6HCJZ5MD"
+    apiKey: "AIzaSyCtxOE42D07yFc9eK3nLMsOy50SmeSErwI",
+    authDomain: "fatherstress-9e695.firebaseapp.com",
+    projectId: "fatherstress-9e695",
+    storageBucket: "fatherstress-9e695.firebasestorage.app",
+    messagingSenderId: "147729735248",
+    appId: "1:147729735248:web:f6771fee76727436a0fb55",
+    measurementId: "G-GF6HCJZ5MD"
 };
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
-// DOM Elements
-const vLogin = document.getElementById('view-login'), vHome = document.getElementById('view-home'),
-      vFolders = document.getElementById('view-folders'), vNote = document.getElementById('view-note');
-const filesList = document.getElementById('files-list'), foldersList = document.getElementById('folders-list'),
-      editor = document.getElementById('editor'), historyList = document.getElementById('history-list'),
-      saveStatus = document.getElementById('save-status');
+// DOM References
+const views = {
+    login: document.getElementById('view-login'),
+    home: document.getElementById('view-home'),
+    folders: document.getElementById('view-folders'),
+    note: document.getElementById('view-note')
+};
 
-let state = { user: null, currentFileId: null, currentFolderId: null, currentNoteId: null, noteUnsubscribe: null, lastSavedContent: "" };
+const editor = document.getElementById('editor');
+const historyListDiv = document.getElementById('history-list');
+const saveStatus = document.getElementById('save-status');
 
-// Helper: Show View
-function show(view) {
-  [vLogin, vHome, vFolders, vNote].forEach(v => v.classList.add('hidden'));
-  view.classList.remove('hidden');
+let state = {
+    user: null,
+    currentFileId: null,
+    currentFolderId: null,
+    currentNoteId: null,
+    lastSavedContent: ""
+};
+
+// Navigation
+function showPage(name) {
+    Object.keys(views).forEach(key => views[key].classList.add('hidden'));
+    views[name].classList.remove('hidden');
+    document.getElementById('btn-logout').classList.toggle('hidden', name === 'login');
 }
 
-// Auth
+// Auth Logic
 auth.onAuthStateChanged(user => {
-  state.user = user;
-  if (user) { show(vHome); loadFiles(); } else { show(vLogin); }
+    state.user = user;
+    if (user) {
+        showPage('home');
+        loadFiles();
+    } else {
+        showPage('login');
+    }
 });
+
 document.getElementById('btn-google').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
 document.getElementById('btn-logout').onclick = () => auth.signOut();
 
-// Collections
-const filesCol = () => db.collection('users').doc(state.user.uid).collection('files');
-const foldersCol = (fId) => filesCol().doc(fId).collection('folders');
-const notesCol = (fId, folId) => foldersCol(fId).doc(folId).collection('notes');
+// Firestore Paths
+const getFilesRef = () => db.collection('users').doc(state.user.uid).collection('files');
+const getFoldersRef = (fId) => getFilesRef().doc(fId).collection('folders');
+const getNotesRef = (fId, folId) => getFoldersRef(fId).doc(folId).collection('notes');
 
-// --- FILES LOGIC ---
-async function loadFiles() {
-  const snap = await filesCol().orderBy('createdAt', 'desc').get();
-  renderList(snap, filesList, openFile, updateFileTitle, deleteFile);
+// --- Render List Engine (Tajuk Panjang Auto-Wrap) ---
+function renderItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
+    targetEl.innerHTML = '';
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        const card = document.createElement('div');
+        card.className = "flex flex-col gap-3 p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 hover:border-indigo-500/30 transition-all";
+
+        // Input tajuk menggunakan Textarea untuk auto-wrap
+        const titleArea = document.createElement('textarea');
+        titleArea.className = "bg-transparent text-lg font-bold text-slate-100 resize-none outline-none focus:text-indigo-400 transition-colors w-full overflow-hidden";
+        titleArea.value = data.title || '';
+        titleArea.rows = 1;
+        
+        // Auto-resize height
+        const adjustHeight = () => {
+            titleArea.style.height = 'auto';
+            titleArea.style.height = titleArea.scrollHeight + 'px';
+        };
+        
+        titleArea.oninput = adjustHeight;
+        titleArea.onchange = () => onUpdate(doc.id, titleArea.value);
+
+        const actions = document.createElement('div');
+        actions.className = "flex items-center justify-end gap-2 pt-2 border-t border-slate-700/30";
+        
+        const bOpen = document.createElement('button');
+        bOpen.className = "px-4 py-1.5 text-xs font-bold rounded-lg bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all";
+        bOpen.innerText = "BUKA";
+        bOpen.onclick = () => onOpen(doc.id, titleArea.value);
+
+        const bDel = document.createElement('button');
+        bDel.className = "px-4 py-1.5 text-xs font-bold rounded-lg bg-red-900/10 text-red-400 hover:bg-red-600 hover:text-white transition-all";
+        bDel.innerText = "PADAM";
+        bDel.onclick = () => onDelete(doc.id);
+
+        actions.append(bOpen, bDel);
+        card.append(titleArea, actions);
+        targetEl.append(card);
+        
+        // Initial height adjustment
+        setTimeout(adjustHeight, 10);
+    });
 }
 
-async function updateFileTitle(id, title) { await filesCol().doc(id).update({ title }); }
-async function deleteFile(id) { if(confirm("Padam fail?")) { await filesCol().doc(id).delete(); loadFiles(); } }
+// --- Files & Folders Actions ---
+async function loadFiles() {
+    const snap = await getFilesRef().orderBy('createdAt', 'desc').get();
+    renderItems(snap, document.getElementById('files-list'), openFile, (id, t) => getFilesRef().doc(id).update({title: t}), deleteFile);
+}
 
 function openFile(id, title) {
-  state.currentFileId = id;
-  document.getElementById('current-file-name').innerText = title;
-  show(vFolders);
-  loadFolders();
+    state.currentFileId = id;
+    document.getElementById('current-file-name').innerText = title;
+    showPage('folders');
+    loadFolders();
 }
 
-// --- FOLDERS LOGIC ---
-async function loadFolders() {
-  const snap = await foldersCol(state.currentFileId).orderBy('createdAt', 'desc').get();
-  renderList(snap, foldersList, openFolder, updateFolderTitle, deleteFolder);
-}
-
-async function updateFolderTitle(id, title) { await foldersCol(state.currentFileId).doc(id).update({ title }); }
-async function deleteFolder(id) { if(confirm("Padam folder?")) { await foldersCol(state.currentFileId).doc(id).delete(); loadFolders(); } }
-
-// --- RENDER LIST (Shared for Files & Folders) ---
-function renderList(snap, targetEl, onOpen, onUpdate, onDelete) {
-  targetEl.innerHTML = '';
-  snap.forEach(doc => {
-    const data = doc.data();
-    const item = document.createElement('div');
-    item.className = 'item';
-
-    // Tajuk guna Textarea supaya turun bawah jika panjang
-    const area = document.createElement('textarea');
-    area.className = 'item-textarea';
-    area.value = data.title || '';
-    area.rows = 1;
-    area.oninput = () => { area.style.height = 'auto'; area.style.height = area.scrollHeight + 'px'; };
-    area.onchange = () => onUpdate(doc.id, area.value);
-
-    const btnRow = document.createElement('div');
-    btnRow.className = 'row';
-    
-    const bOpen = document.createElement('button'); bOpen.className = 'btn'; bOpen.innerText = 'Buka';
-    bOpen.onclick = () => onOpen(doc.id, area.value);
-    
-    const bDel = document.createElement('button'); bDel.className = 'btn btn-danger'; bDel.innerText = 'Padam';
-    bDel.onclick = () => onDelete(doc.id);
-
-    btnRow.append(bOpen, bDel);
-    item.append(area, btnRow);
-    targetEl.append(item);
-    area.oninput(); // Adjust height initial
-  });
-}
-
-// --- NOTE & HISTORY LOGIC ---
-async function openFolder(id, title) {
-  state.currentFolderId = id;
-  document.getElementById('current-folder-name').innerText = title;
-  show(vNote);
-
-  const nCol = notesCol(state.currentFileId, id);
-  const snap = await nCol.limit(1).get();
-  state.currentNoteId = snap.empty ? (await nCol.add({ content: '', history: [] })).id : snap.docs[0].id;
-
-  if (state.noteUnsubscribe) state.noteUnsubscribe();
-  state.noteUnsubscribe = nCol.doc(state.currentNoteId).onSnapshot(doc => {
-    const data = doc.data();
-    if (editor.innerHTML !== data.content) {
-      editor.innerHTML = data.content || '';
-      state.lastSavedContent = data.content;
+async function deleteFile(id) {
+    if(confirm("Padam fail ini dan semua kandungan di dalamnya?")) {
+        await getFilesRef().doc(id).delete();
+        loadFiles();
     }
-    renderHistory(data.history || []);
-  });
 }
 
-function renderHistory(history) {
-  historyList.innerHTML = history.length ? '' : '<p class="subtext">Tiada sejarah.</p>';
-  history.slice().reverse().forEach((h, i) => {
-    const div = document.createElement('div');
-    div.className = 'history-item';
-    div.innerHTML = `<span>Versi ${history.length - i}</span> <button class="btn-ghost">Restore</button>`;
-    div.querySelector('button').onclick = () => restoreHistory(history.length - 1 - i);
-    historyList.appendChild(div);
-  });
+async function loadFolders() {
+    const snap = await getFoldersRef(state.currentFileId).orderBy('createdAt', 'desc').get();
+    renderItems(snap, document.getElementById('folders-list'), openFolder, (id, t) => getFoldersRef(state.currentFileId).doc(id).update({title: t}), deleteFolder);
+}
+
+async function deleteFolder(id) {
+    if(confirm("Padam folder ini?")) {
+        await getFoldersRef(state.currentFileId).doc(id).delete();
+        loadFolders();
+    }
+}
+
+// --- Editor & History ---
+async function openFolder(id, title) {
+    state.currentFolderId = id;
+    document.getElementById('current-folder-name').innerText = title;
+    showPage('note');
+
+    const nRef = getNotesRef(state.currentFileId, id);
+    const snap = await nRef.limit(1).get();
+    
+    if (snap.empty) {
+        const d = await nRef.add({ content: '', history: [], updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        state.currentNoteId = d.id;
+    } else {
+        state.currentNoteId = snap.docs[0].id;
+    }
+
+    // Subscribe Live
+    db.collection('users').doc(state.user.uid)
+      .collection('files').doc(state.currentFileId)
+      .collection('folders').doc(state.currentFolderId)
+      .collection('notes').doc(state.currentNoteId)
+      .onSnapshot(doc => {
+        const data = doc.data();
+        if (!data) return;
+        if (editor.innerHTML !== data.content) {
+            editor.innerHTML = data.content || '';
+            state.lastSavedContent = data.content;
+        }
+        renderHistoryList(data.history || []);
+    });
+}
+
+function renderHistoryList(history) {
+    historyListDiv.innerHTML = history.length ? '' : '<p class="text-xs text-slate-600 italic">Tiada sejarah tersedia.</p>';
+    history.slice().reverse().forEach((h, i) => {
+        const timeStr = h.time ? new Date(h.time.seconds * 1000).toLocaleString('ms-MY') : 'Baru tadi';
+        const div = document.createElement('div');
+        div.className = "flex items-center justify-between p-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-slate-600 transition-all";
+        div.innerHTML = `
+            <div class="flex flex-col">
+                <span class="text-[10px] font-bold text-slate-500 uppercase">Versi</span>
+                <span class="text-xs text-slate-300">${timeStr}</span>
+            </div>
+            <button class="px-3 py-1 text-[10px] font-bold rounded-md bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all">RESTORE</button>
+        `;
+        div.querySelector('button').onclick = () => restoreHistory(history.length - 1 - i);
+        historyListDiv.appendChild(div);
+    });
 }
 
 async function restoreHistory(index) {
-  const docRef = notesCol(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
-  const doc = await docRef.get();
-  const content = doc.data().history[index].content;
-  await docRef.update({ content });
+    if(!confirm("Kembali ke versi ini?")) return;
+    const docRef = getNotesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
+    const doc = await docRef.get();
+    const content = doc.data().history[index].content;
+    await docRef.update({ content });
 }
 
-// Auto Save
-let saveTimeout;
+// Auto Save with History
+let saveTimer;
 editor.oninput = () => {
-  clearTimeout(saveTimeout);
-  saveStatus.innerText = 'Menaip...';
-  saveTimeout = setTimeout(saveWithHistory, 3000);
+    saveStatus.innerText = "Menunggu...";
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+        if (editor.innerHTML === state.lastSavedContent) return;
+        saveStatus.innerText = "Menyimpan...";
+        
+        const docRef = getNotesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
+        const doc = await docRef.get();
+        let hist = doc.data().history || [];
+        
+        if (state.lastSavedContent) {
+            hist.push({ content: state.lastSavedContent, time: new Date() });
+            if (hist.length > 5) hist.shift();
+        }
+
+        await docRef.update({ 
+            content: editor.innerHTML, 
+            history: hist,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+        });
+        state.lastSavedContent = editor.innerHTML;
+        saveStatus.innerText = "Auto-simpan aktif";
+    }, 2000);
 };
 
-async function saveWithHistory() {
-  if (editor.innerHTML === state.lastSavedContent) return;
-  const docRef = notesCol(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
-  const doc = await docRef.get();
-  let hist = doc.data().history || [];
-  
-  // Masukkan kandungan lama ke history
-  if (state.lastSavedContent) {
-    hist.push({ content: state.lastSavedContent, time: new Date() });
-    if (hist.length > 5) hist.shift(); // Simpan 5 sahaja
-  }
-
-  await docRef.update({ content: editor.innerHTML, history: hist });
-  state.lastSavedContent = editor.innerHTML;
-  saveStatus.innerText = 'Tersimpan.';
-}
-
-// Toolbar Events
-document.querySelectorAll('[data-action]').forEach(b => {
-  b.onclick = () => { document.execCommand(b.dataset.action); editor.focus(); };
+// Toolbars & Events
+document.querySelectorAll('[data-action]').forEach(btn => {
+    btn.onclick = () => { document.execCommand(btn.dataset.action); editor.focus(); };
 });
 
-// Back Navigation
-document.getElementById('btn-back-home').onclick = () => show(vHome);
-document.getElementById('btn-back-folders').onclick = () => show(vFolders);
+document.getElementById('color-picker').oninput = (e) => {
+    document.execCommand('foreColor', false, e.target.value);
+};
+
+document.getElementById('btn-size-up').onclick = () => document.execCommand('fontSize', false, '4');
+document.getElementById('btn-size-down').onclick = () => document.execCommand('fontSize', false, '2');
+
 document.getElementById('btn-add-file').onclick = async () => {
-  await filesCol().add({ title: 'Fail Baru', createdAt: new Date() }); loadFiles();
+    const t = prompt("Tajuk fail?");
+    if(t) await getFilesRef().add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    loadFiles();
 };
+
 document.getElementById('btn-add-folder').onclick = async () => {
-  await foldersCol(state.currentFileId).add({ title: 'Folder Baru', createdAt: new Date() }); loadFolders();
+    const t = prompt("Tajuk folder?");
+    if(t) await getFoldersRef(state.currentFileId).add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    loadFolders();
 };
+
+document.getElementById('btn-back-home').onclick = () => showPage('home');
+document.getElementById('btn-back-folders').onclick = () => showPage('folders');
