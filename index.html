@@ -3,17 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Wan-Law UI Hybrid</title>
+  <title>Wan-Law Pro Hybrid</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <style>
     :root { --bg: #020617; }
-    body { background-color: var(--bg); color: #e5e7eb; }
+    body { background-color: var(--bg); color: #e5e7eb; font-family: system-ui, sans-serif; }
     .editor {
       min-height: 500px;
       background: #0b1220;
@@ -23,23 +22,25 @@
       outline: none;
       color: white;
       font-size: 16px;
+      line-height: 1.6;
     }
     .hidden { display: none !important; }
+    .btn-icon { @apply p-2 rounded-lg hover:bg-slate-700 transition-colors; }
   </style>
 </head>
 <body class="min-h-screen">
 
   <header class="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/50 sticky top-0 z-50 backdrop-blur-md">
-    <h1 class="text-xl font-bold text-indigo-400">Wan-Law <span class="text-white text-sm font-normal">v2 Style</span></h1>
-    <button id="btnLogout" class="hidden px-3 py-1 rounded bg-slate-800 hover:bg-red-900 text-xs transition">Logout</button>
+    <h1 class="text-xl font-bold text-indigo-400 tracking-tighter">Wan-Law <span class="text-white text-xs font-normal">History Mode</span></h1>
+    <button id="btnLogout" class="hidden px-3 py-1 rounded bg-red-900/20 text-red-400 text-xs border border-red-900/50">Logout</button>
   </header>
 
   <main class="max-w-4xl mx-auto p-4">
 
     <section id="view-login" class="mt-20 flex justify-center">
-      <div class="max-w-md w-full bg-slate-800/50 rounded-2xl p-8 border border-slate-700 text-center">
-        <h2 class="text-2xl font-bold mb-6">Masuk Akaun</h2>
-        <button id="btnGoogle" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold transition">
+      <div class="max-w-md w-full bg-slate-800/50 rounded-2xl p-8 border border-slate-700 text-center shadow-2xl">
+        <h2 class="text-2xl font-bold mb-6">Selamat Kembali</h2>
+        <button id="btnGoogle" class="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold transition shadow-lg shadow-indigo-500/20">
           Log masuk dengan Google
         </button>
       </div>
@@ -47,22 +48,22 @@
 
     <section id="view-home" class="hidden">
       <div class="flex gap-2 mb-6">
-        <input id="searchFiles" type="text" placeholder="Cari fail lama..." class="flex-1 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input id="searchFiles" type="text" placeholder="Cari fail..." class="flex-1 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         <button id="btnAddFile" class="px-4 py-2 rounded-xl bg-indigo-600 font-bold text-sm">Tambah Fail</button>
       </div>
-      <div id="listFiles" class="grid gap-2"></div>
+      <div id="listFiles" class="grid gap-3"></div>
     </section>
 
     <section id="view-folders" class="hidden">
       <div class="flex items-center justify-between mb-4">
         <button onclick="showView('home')" class="text-sm text-slate-400 hover:text-white">← Kembali</button>
-        <h3 id="labelFile" class="font-bold text-indigo-400"></h3>
+        <h3 id="labelFile" class="font-bold text-indigo-400 truncate max-w-[200px]"></h3>
       </div>
       <div class="flex gap-2 mb-6">
         <input id="searchFolders" type="text" placeholder="Cari folder..." class="flex-1 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none" />
         <button id="btnAddFolder" class="px-4 py-2 rounded-xl bg-indigo-600 font-bold text-sm">Tambah Folder</button>
       </div>
-      <div id="listFolders" class="grid gap-2"></div>
+      <div id="listFolders" class="grid gap-3"></div>
     </section>
 
     <section id="view-note" class="hidden">
@@ -70,26 +71,40 @@
         <button id="btnBackToFolders" class="px-3 py-1 rounded bg-slate-800 text-xs font-semibold">← Simpan & Kembali</button>
         <div class="text-right">
           <h3 id="labelFolder" class="font-bold text-indigo-400 text-sm"></h3>
-          <p id="saveStatus" class="text-[10px] text-slate-500">Auto-simpan: Aktif</p>
+          <p id="saveStatus" class="text-[10px] text-slate-500 italic">Sedia</p>
         </div>
       </div>
 
-      <div class="flex flex-wrap gap-2 p-2 bg-slate-800 rounded-t-xl border-x border-t border-slate-700">
+      <div class="flex flex-wrap items-center gap-2 p-2 bg-slate-800 rounded-t-xl border-x border-t border-slate-700">
         <button class="w-8 h-8 flex items-center justify-center bg-slate-700 rounded hover:bg-slate-600 font-bold" onclick="doCmd('bold')">B</button>
         <button class="w-8 h-8 flex items-center justify-center bg-slate-700 rounded hover:bg-slate-600 underline font-bold" onclick="doCmd('underline')">U</button>
         <input type="color" oninput="doCmd('foreColor', this.value)" class="w-8 h-8 bg-transparent border-none cursor-pointer" />
-        <div class="h-8 w-[1px] bg-slate-700 mx-1"></div>
+        <div class="h-6 w-[1px] bg-slate-600 mx-1"></div>
         <button class="px-2 h-8 bg-slate-700 rounded text-xs font-bold" onclick="adjustSize(2)">A+</button>
         <button class="px-2 h-8 bg-slate-700 rounded text-xs font-bold" onclick="adjustSize(-2)">A-</button>
+        
+        <div class="flex-1 text-right">
+          <button id="btnHistory" class="px-3 py-1 bg-amber-600/20 text-amber-400 text-[10px] rounded border border-amber-900/50 font-bold">🕒 SEJARAH</button>
+        </div>
       </div>
 
       <div id="editor" class="editor" contenteditable="true" spellcheck="false"></div>
+      
+      <div id="modalHistory" class="fixed inset-0 bg-black/80 z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl">
+          <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+            <h4 class="font-bold">Pulihkan Versi Nota</h4>
+            <button onclick="toggleHistory(false)" class="text-slate-500 text-xl">&times;</button>
+          </div>
+          <div id="historyList" class="p-2 max-h-[400px] overflow-y-auto">
+            </div>
+        </div>
+      </div>
     </section>
 
   </main>
 
   <script>
-    // FIREBASE CONFIG (SAMA SEPERTI APP PERTAMA ANDA)
     const firebaseConfig = {
       apiKey: "AIzaSyCtxOE42D07yFc9eK3nLMsOy50SmeSErwI",
       authDomain: "fatherstress-9e695.firebaseapp.com",
@@ -108,15 +123,11 @@
       fileId: null,
       folderId: null,
       noteId: null,
-      saveTimer: null
+      saveTimer: null,
+      lastContent: ""
     };
 
-    // PATH HELPER (Guna Struktur App 1)
-    const getFilesCol = () => db.collection('users').doc(state.uid).collection('files');
-    const getFoldersCol = (fId) => getFilesCol().doc(fId).collection('folders');
-    const getNotesCol = (fId, foId) => getFoldersCol(fId).doc(foId).collection('notes');
-
-    // VIEW ROUTING
+    // --- NAVIGATION ---
     function showView(id) {
       document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
       document.getElementById('view-' + id).classList.remove('hidden');
@@ -137,19 +148,24 @@
     document.getElementById('btnGoogle').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
     document.getElementById('btnLogout').onclick = () => auth.signOut();
 
-    // 1. FILES (Dahulu Subjek)
+    // --- FILES (Ibu) ---
     async function loadFiles() {
-      const snap = await getFilesCol().orderBy('createdAt', 'asc').get();
+      const snap = await db.collection('users').doc(state.uid).collection('files').orderBy('createdAt', 'desc').get();
       const list = document.getElementById('listFiles');
       list.innerHTML = '';
       snap.forEach(doc => {
         const d = doc.data();
         const div = document.createElement('div');
-        div.className = "bg-slate-800/80 p-4 rounded-xl border border-slate-700 flex justify-between items-center";
-        div.innerHTML = `<button class="font-bold flex-1 text-left">${d.title || 'Tanpa Nama'}</button>
-                         <button class="text-xs text-red-500 ml-4 opacity-50 hover:opacity-100">Padam</button>`;
+        div.className = "bg-slate-800/50 p-4 rounded-xl border border-slate-700 flex justify-between items-center";
+        div.innerHTML = `
+          <button class="font-bold flex-1 text-left truncate pr-2">${d.title || 'Tanpa Nama'}</button>
+          <div class="flex gap-2">
+            <button class="text-xs bg-slate-700 p-2 rounded edit-file">✏️</button>
+            <button class="text-xs bg-red-900/20 text-red-500 p-2 rounded delete-file">🗑️</button>
+          </div>`;
         div.querySelector('button').onclick = () => openFile(doc.id, d.title);
-        div.querySelector('button:last-child').onclick = () => deleteData('files', doc.id, loadFiles);
+        div.querySelector('.edit-file').onclick = (e) => { e.stopPropagation(); editData('files', doc.id, d.title, loadFiles); };
+        div.querySelector('.delete-file').onclick = (e) => { e.stopPropagation(); deleteData('files', doc.id, loadFiles); };
         list.appendChild(div);
       });
     }
@@ -161,24 +177,29 @@
       loadFolders();
     }
 
-    // 2. FOLDERS (Dahulu Topik)
+    // --- FOLDERS (Anak) ---
     async function loadFolders() {
-      const snap = await getFoldersCol(state.fileId).orderBy('createdAt', 'asc').get();
+      const snap = await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').orderBy('createdAt', 'desc').get();
       const list = document.getElementById('listFolders');
       list.innerHTML = '';
       snap.forEach(doc => {
         const d = doc.data();
         const div = document.createElement('div');
-        div.className = "bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center";
-        div.innerHTML = `<button class="font-bold flex-1 text-left">${d.title || 'Folder'}</button>
-                         <button class="text-xs text-red-500 ml-4 opacity-50 hover:opacity-100">Padam</button>`;
+        div.className = "bg-slate-800/50 p-4 rounded-xl border border-slate-700 flex justify-between items-center";
+        div.innerHTML = `
+          <button class="font-bold flex-1 text-left truncate pr-2">${d.title || 'Folder'}</button>
+          <div class="flex gap-2">
+            <button class="text-xs bg-slate-700 p-2 rounded edit-folder">✏️</button>
+            <button class="text-xs bg-red-900/20 text-red-500 p-2 rounded delete-folder">🗑️</button>
+          </div>`;
         div.querySelector('button').onclick = () => openNote(doc.id, d.title);
-        div.querySelector('button:last-child').onclick = () => deleteData(`files/${state.fileId}/folders`, doc.id, loadFolders);
+        div.querySelector('.edit-folder').onclick = (e) => { e.stopPropagation(); editData(`files/${state.fileId}/folders`, doc.id, d.title, loadFolders); };
+        div.querySelector('.delete-folder').onclick = (e) => { e.stopPropagation(); deleteData(`files/${state.fileId}/folders`, doc.id, loadFolders); };
         list.appendChild(div);
       });
     }
 
-    // 3. NOTE / EDITOR
+    // --- EDITOR & HISTORY (Cucu) ---
     async function openNote(id, title) {
       state.folderId = id;
       document.getElementById('labelFolder').textContent = title;
@@ -186,7 +207,7 @@
       editor.innerHTML = 'Memuatkan nota...';
       showView('note');
 
-      const notesRef = getNotesCol(state.fileId, id);
+      const notesRef = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(id).collection('notes');
       const snap = await notesRef.limit(1).get();
       
       if (snap.empty) {
@@ -195,42 +216,106 @@
         editor.innerHTML = '';
       } else {
         state.noteId = snap.docs[0].id;
-        editor.innerHTML = snap.docs[0].data().content || '';
+        state.lastContent = snap.docs[0].data().content || '';
+        editor.innerHTML = state.lastContent;
       }
     }
 
-    // Editor Functions (App 1)
-    function doCmd(cmd, val = null) {
-      document.execCommand(cmd, false, val);
-      document.getElementById('editor').focus();
-    }
-
-    function adjustSize(delta) {
-      const node = window.getSelection().anchorNode.parentElement;
-      const current = parseFloat(window.getComputedStyle(node).fontSize) || 16;
-      node.style.fontSize = (current + delta) + 'px';
-    }
-
-    // Auto-Save (5 saat)
+    // Save Logic with Real-time History
     document.getElementById('editor').addEventListener('input', () => {
-      document.getElementById('saveStatus').textContent = 'Menyimpan...';
+      document.getElementById('saveStatus').textContent = 'Menaip...';
       clearTimeout(state.saveTimer);
       state.saveTimer = setTimeout(async () => {
-        await getNotesCol(state.fileId, state.folderId).doc(state.noteId).set({
-          content: document.getElementById('editor').innerHTML,
+        const currentContent = document.getElementById('editor').innerHTML;
+        const notePath = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
+        
+        await notePath.set({
+          content: currentContent,
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
-        document.getElementById('saveStatus').textContent = 'Disimpan (Awan)';
-      }, 5000);
+
+        // Simpan ke Real-time History (Simpan 10 terakhir)
+        const histRef = notePath.collection('history');
+        await histRef.add({
+          content: currentContent,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          type: 'realtime'
+        });
+
+        // Padam sejarah lama jika > 15 (Realtime)
+        const oldDocs = await histRef.where('type', '==', 'realtime').orderBy('timestamp', 'desc').get();
+        if(oldDocs.size > 10) {
+          oldDocs.docs.slice(10).forEach(d => d.ref.delete());
+        }
+
+        document.getElementById('saveStatus').textContent = 'Disimpan';
+        state.lastContent = currentContent;
+      }, 3000);
     });
 
-    document.getElementById('btnBackToFolders').onclick = () => showView('folders');
+    // --- HISTORY UI ---
+    async function toggleHistory(show) {
+      const modal = document.getElementById('modalHistory');
+      const list = document.getElementById('historyList');
+      if (show) {
+        list.innerHTML = '<p class="p-4 text-center text-xs">Menarik sejarah...</p>';
+        modal.classList.remove('hidden');
+        
+        const notePath = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
+        const snap = await notePath.collection('history').orderBy('timestamp', 'desc').get();
+        
+        list.innerHTML = '';
+        if(snap.empty) list.innerHTML = '<p class="p-4 text-center text-xs opacity-50">Tiada sejarah dijumpai.</p>';
 
-    // Add & Delete Utils
+        snap.forEach(doc => {
+          const d = doc.data();
+          const date = d.timestamp?.toDate ? d.timestamp.toDate() : new Date();
+          const timeStr = date.toLocaleString('ms-MY');
+          
+          const btn = document.createElement('button');
+          btn.className = "w-full text-left p-3 hover:bg-slate-800 border-b border-slate-800 last:border-0 flex justify-between items-center";
+          btn.innerHTML = `
+            <div>
+              <div class="text-xs font-bold">${timeStr}</div>
+              <div class="text-[10px] text-indigo-400 uppercase">${d.type}</div>
+            </div>
+            <span class="text-xs bg-indigo-900/40 px-2 py-1 rounded">Pulih</span>
+          `;
+          btn.onclick = () => {
+            if(confirm('Pulihkan nota ke versi ini?')) {
+              document.getElementById('editor').innerHTML = d.content;
+              toggleHistory(false);
+              document.getElementById('editor').dispatchEvent(new Event('input'));
+            }
+          };
+          list.appendChild(btn);
+        });
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+    document.getElementById('btnHistory').onclick = () => toggleHistory(true);
+
+    // --- CRUD UTILS ---
+    async function editData(path, id, oldTitle, cb) {
+      const newTitle = prompt('Sunting Tajuk:', oldTitle);
+      if(newTitle && newTitle !== oldTitle) {
+        await db.collection('users').doc(state.uid).collection(path).doc(id).update({ title: newTitle });
+        cb();
+      }
+    }
+
+    async function deleteData(path, id, cb) {
+      if(confirm('Padam data ini secara kekal?')) {
+        await db.collection('users').doc(state.uid).collection(path).doc(id).delete();
+        cb();
+      }
+    }
+
     document.getElementById('btnAddFile').onclick = async () => {
       const title = prompt('Nama Fail Baru?');
       if (title) {
-        await getFilesCol().add({ title, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        await db.collection('users').doc(state.uid).collection('files').add({ title, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         loadFiles();
       }
     };
@@ -238,16 +323,17 @@
     document.getElementById('btnAddFolder').onclick = async () => {
       const title = prompt('Nama Folder Baru?');
       if (title) {
-        await getFoldersCol(state.fileId).add({ title, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         loadFolders();
       }
     };
 
-    async function deleteData(path, id, cb) {
-      if(confirm('Padam data ini?')) {
-        await getFilesCol().parent.doc(state.uid).collection(path).doc(id).delete();
-        cb();
-      }
+    document.getElementById('btnBackToFolders').onclick = () => showView('folders');
+    function doCmd(c, v=null) { document.execCommand(c, false, v); document.getElementById('editor').focus(); }
+    function adjustSize(d) {
+      const n = window.getSelection().anchorNode.parentElement;
+      const c = parseFloat(window.getComputedStyle(n).fontSize) || 16;
+      n.style.fontSize = (c + d) + 'px';
     }
   </script>
 </body>
