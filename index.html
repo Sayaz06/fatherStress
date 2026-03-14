@@ -25,9 +25,16 @@
     }
     a{color:inherit; text-decoration:none}
     .container{max-width:900px; margin:0 auto; padding:20px}
+    
+    /* PENYELARASAN TAJUK: Memastikan tajuk panjang turun ke bawah */
     .title{
       font-weight:700; font-size:24px; margin:8px 0 16px;
+      word-wrap: break-word; /* Pecahkan perkataan jika terlalu panjang */
+      overflow-wrap: break-word;
+      white-space: normal; /* Benarkan teks turun ke bawah */
+      line-height: 1.3;
     }
+
     .card{
       background:#0b1220; border:1px solid var(--border);
       border-radius:16px; padding:16px; box-shadow:0 10px 25px rgba(0,0,0,.35);
@@ -52,57 +59,79 @@
       background:#0b1220; border:1px solid var(--border2);
       color:var(--text); outline:none;
     }
-    .input::placeholder{color:var(--muted)}
     .list{display:flex; flex-direction:column; gap:10px; margin-top:12px}
+    
+    /* ITEM LIST: Mengendalikan tajuk panjang dalam senarai */
     .item{
-      display:flex; align-items:flex-start; justify-content:space-between;
-      padding:10px 12px; border-radius:12px; border:1px solid var(--border);
-      background:#0e1626; gap:10px;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px; border-radius:12px; border:1px solid var(--border);
+      background:#0e1626; gap:12px;
     }
-    /* PENYELARASAN TAJUK PANJANG */
     .item-name{
-      display:flex; gap:10px; align-items:flex-start; flex:1; min-width:0;
+      flex: 1; 
+      min-width: 0; 
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: normal; /* Penting supaya teks tidak sebaris panjang */
+      cursor: pointer;
     }
-    .item-name textarea {
-      flex:1; min-width:0; background:transparent; border:none; 
-      color:var(--text); outline:none; resize:none; overflow:hidden;
-      font-family:inherit; font-size:inherit; padding:0; margin:0;
-      line-height: 1.4;
-    }
+
     .toolbar{
       display:flex; gap:8px; flex-wrap:wrap; padding:8px; border:1px solid var(--border);
       border-radius:12px; margin:10px 0; background:#0e1626;
     }
-    .toolbar .btn{padding:8px 10px}
     .editor{
       min-height:240px; padding:12px; border-radius:12px;
       border:1px solid var(--border); background:#0b1220; outline:none;
+      line-height: 1.6;
     }
-    .subtext{color:var(--muted); font-size:12px}
+    .subtext{color:var(--muted); font-size:12px; margin-bottom: 4px;}
     .header{
-      display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;
-    }
-    .search{flex:1}
-    .hidden{display:none !important}
-    .divider{border-top:1px solid var(--border); margin:12px 0}
-    .back{cursor:pointer}
-    /* Font size chooser (1pt–60pt) */
-    .size-input{
-      width:90px; background:#0b1220; border:1px solid var(--border2);
-      border-radius:10px; color:var(--text); padding:8px;
+      display:flex; align-items: flex-start; justify-content:space-between; gap:12px; margin-bottom:12px;
     }
 
-    /* HISTORY STYLES */
+    /* BAHAGIAN SEJARAH (HISTORY) */
     .history-section {
-      margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border);
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .history-card {
+      background: #0e1626;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
     }
     .history-list {
-      list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
     }
     .history-item {
-      display: flex; justify-content: space-between; align-items: center;
-      background: #111827; padding: 8px 12px; border-radius: 8px; font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #111827;
+      border-radius: 8px;
+      font-size: 13px;
+      border: 1px solid transparent;
+      transition: 0.2s;
     }
+    .history-item:hover {
+      border-color: var(--grad1);
+    }
+    .btn-restore {
+      padding: 4px 8px;
+      font-size: 11px;
+      background: var(--border2);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .hidden{display:none !important}
+    .divider{border-top:1px solid var(--border); margin:12px 0}
   </style>
 
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -124,13 +153,11 @@
     <section id="view-home" class="card hidden">
       <div class="header">
         <div class="title">Original Wan-Law</div>
-        <div class="row">
-          <button id="btn-logout" class="btn-ghost">Logout</button>
-        </div>
+        <button id="btn-logout" class="btn-ghost">Logout</button>
       </div>
 
       <div class="row">
-        <input id="search-files" class="input search" placeholder="Cari Fail…" />
+        <input id="search-files" class="input" style="flex:1" placeholder="Cari Fail…" />
         <button id="btn-add-file" class="btn">Tambah Fail</button>
       </div>
 
@@ -139,17 +166,13 @@
 
     <section id="view-folders" class="card hidden">
       <div class="header">
-        <div class="row">
-          <span id="btn-back-home" class="btn-ghost back">← Kembali</span>
-        </div>
-        <div class="title">Original Wan-Law</div>
+        <div class="title" id="current-file-name" style="font-size: 18px; color: var(--grad1);">Nama Fail</div>
+        <button id="btn-back-home" class="btn-ghost">← Kembali</button>
       </div>
 
-      <p class="subtext" id="current-file-name"></p>
-
       <div class="row">
-        <input id="search-folders" class="input search" placeholder="Cari Folder (longgar: 1–2 huruf/nombor)…" />
-        <button id="btn-add-folder" class="btn">Tambah Folder Baharu</button>
+        <input id="search-folders" class="input" style="flex:1" placeholder="Cari Folder..." />
+        <button id="btn-add-folder" class="btn">Tambah Folder</button>
       </div>
 
       <div id="folders-list" class="list"></div>
@@ -157,36 +180,31 @@
 
     <section id="view-note" class="card hidden">
       <div class="header">
-        <div class="row">
-          <span id="btn-back-folders" class="btn-ghost back">← Kembali</span>
-        </div>
-        <div class="title">Original Wan-Law</div>
+        <div class="title" id="current-folder-name" style="font-size: 18px; color: var(--grad1);">Nama Folder</div>
+        <button id="btn-back-folders" class="btn-ghost">← Kembali</button>
       </div>
-
-      <p class="subtext" id="current-folder-name"></p>
 
       <div class="toolbar">
-        <button class="btn" data-action="bold">Bold</button>
-        <button class="btn" data-action="underline">Underline</button>
-        <input id="color-picker" type="color" title="Pilih warna perkataan" />
+        <button class="btn" data-action="bold">B</button>
+        <button class="btn" data-action="underline">U</button>
+        <input id="color-picker" type="color" title="Warna Teks" />
         <button id="btn-size-down" class="btn">−</button>
         <button id="btn-size-up" class="btn">+</button>
-
-        <button id="btn-export-json" class="btn">Export JSON</button>
-        <input type="file" id="import-json-file" accept="application/json" hidden />
-        <button id="btn-import-json" class="btn">Import JSON</button>
+        <button id="btn-export-json" class="btn">Export</button>
       </div>
 
-      <div id="editor" class="editor" contenteditable="true" spellcheck="false" placeholder="Tulis nota anda di sini…"></div>
+      <div id="editor" class="editor" contenteditable="true" spellcheck="false" placeholder="Tulis nota anda..."></div>
       
-      <div class="row" style="justify-content: space-between; margin-top: 10px;">
-        <p class="subtext" id="save-status">Auto-simpan diaktifkan.</p>
+      <div class="row" style="margin-top: 10px;">
+        <p class="subtext" id="save-status">Auto-simpan aktif.</p>
       </div>
 
       <div class="history-section">
-        <p class="subtext"><strong>Sejarah Versi (5 peringkat):</strong></p>
-        <div id="history-list" class="history-list">
-          <span class="subtext">Tiada sejarah tersedia.</span>
+        <p class="subtext" style="font-weight: bold;">Sejarah Versi (Klik untuk kembali ke versi asal):</p>
+        <div class="history-card">
+          <div id="history-list" class="history-list">
+            <span class="subtext">Tiada sejarah tersedia lagi.</span>
+          </div>
         </div>
       </div>
     </section>
