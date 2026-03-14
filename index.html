@@ -6,44 +6,52 @@
   <title>Wan-Law x First-Life Hybrid</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
   <style>
     :root {
       --bg: #020617;
       --border: #1f2937;
-      --grad1: #6366f1;
-      --grad2: #8b5cf6;
     }
-    body { background-color: var(--bg); color: #e5e7eb; }
+    body { 
+      background-color: var(--bg); 
+      color: #e5e7eb; 
+      font-family: system-ui, -apple-system, sans-serif;
+    }
     .editor {
-      min-height: 400px;
+      min-height: 450px;
       background: #0b1220;
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 0 0 12px 12px;
       padding: 16px;
       outline: none;
       color: white;
+      line-height: 1.6;
     }
     .hidden { display: none !important; }
+    .item-card {
+      transition: transform 0.1s ease;
+    }
+    .item-card:active { transform: scale(0.98); }
   </style>
-
-  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="min-h-screen">
 
-  <header class="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/50 sticky top-0 z-50">
+  <header class="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/80 sticky top-0 z-50 backdrop-blur-md">
     <h1 class="text-xl font-bold tracking-tighter text-indigo-400">Wan-Law <span class="text-white">Hybrid</span></h1>
-    <button id="btnLogout" class="hidden px-3 py-1 rounded bg-slate-800 hover:bg-red-900 text-sm transition">Logout</button>
+    <button id="btnLogout" class="hidden px-3 py-1 rounded-lg bg-slate-800 hover:bg-red-900 text-xs transition">Logout</button>
   </header>
 
   <main class="max-w-4xl mx-auto p-4">
 
     <section id="view-login" class="mt-20 flex justify-center">
       <div class="max-w-md w-full bg-slate-800/50 rounded-2xl p-8 border border-slate-700 shadow-2xl text-center">
-        <h2 class="text-2xl font-bold mb-4">Selamat Datang</h2>
-        <p class="text-slate-400 mb-6">Sistem nota hibrid dengan simpanan awan Firebase.</p>
-        <button id="btnGoogle" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold transition">
+        <h2 class="text-2xl font-bold mb-4 text-white">Selamat Datang</h2>
+        <p class="text-slate-400 mb-8 text-sm">Log masuk dengan akaun Google untuk akses nota anda di mana-mana sahaja.</p>
+        <button id="btnGoogle" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold transition shadow-lg shadow-indigo-500/20">
           Log masuk dengan Google
         </button>
       </div>
@@ -51,45 +59,46 @@
 
     <section id="view-subjects" class="hidden">
       <div class="flex gap-2 mb-6">
-        <input id="searchSubjects" type="text" placeholder="Cari subjek..." class="flex-1 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <button id="btnAddSubject" class="px-4 py-2 rounded-xl bg-indigo-600 font-bold">Tambah</button>
+        <input id="searchSubjects" type="text" placeholder="Cari subjek..." class="flex-1 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+        <button id="btnAddSubject" class="px-4 py-2 rounded-xl bg-indigo-600 font-bold text-sm">Tambah</button>
       </div>
       <div id="listSubjects" class="grid gap-3"></div>
     </section>
 
     <section id="view-topics" class="hidden">
       <div class="flex items-center justify-between mb-4">
-        <button onclick="showView('subjects')" class="text-sm text-slate-400 hover:text-white">← Kembali</button>
-        <h3 id="labelSubject" class="font-bold text-indigo-400"></h3>
+        <button onclick="showView('subjects')" class="text-sm text-slate-400 hover:text-white flex items-center gap-1">← Subjek</button>
+        <h3 id="labelSubject" class="font-bold text-indigo-400 truncate max-w-[200px]"></h3>
       </div>
       <div class="flex gap-2 mb-6">
-        <input id="searchTopics" type="text" placeholder="Cari topik..." class="flex-1 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none" />
-        <button id="btnAddTopic" class="px-4 py-2 rounded-xl bg-indigo-600 font-bold">Tambah Topik</button>
+        <input id="searchTopics" type="text" placeholder="Cari topik..." class="flex-1 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+        <button id="btnAddTopic" class="px-4 py-2 rounded-xl bg-indigo-600 font-bold text-sm">Tambah Topik</button>
       </div>
       <div id="listTopics" class="grid gap-3"></div>
     </section>
 
     <section id="view-editor" class="hidden">
       <div class="flex items-center justify-between mb-4">
-        <button id="btnBackToTopics" class="px-4 py-1 rounded bg-slate-800 text-sm">← Simpan & Kembali</button>
+        <button id="btnBackToTopics" class="px-3 py-1 rounded-lg bg-slate-800 text-xs font-semibold hover:bg-slate-700">← Simpan & Kembali</button>
         <div class="text-right">
-          <h3 id="labelTopic" class="font-bold text-indigo-400"></h3>
-          <p id="saveStatus" class="text-[10px] text-slate-500">Auto-simpan aktif</p>
+          <h3 id="labelTopic" class="font-bold text-indigo-400 text-sm truncate max-w-[150px]"></h3>
+          <p id="saveStatus" class="text-[10px] text-slate-500 italic">Auto-simpan aktif</p>
         </div>
       </div>
 
-      <div class="flex flex-wrap gap-2 p-2 mb-2 bg-slate-800 rounded-t-xl border-x border-t border-slate-700">
-        <button class="px-3 py-1 bg-slate-700 rounded hover:bg-slate-600 text-xs font-bold" onclick="doCmd('bold')">B</button>
-        <button class="px-3 py-1 bg-slate-700 rounded hover:bg-slate-600 text-xs underline font-bold" onclick="doCmd('underline')">U</button>
-        <input type="color" id="colorPicker" class="h-6 w-8 bg-transparent border-none cursor-pointer" oninput="doCmd('foreColor', this.value)" />
-        <button class="px-3 py-1 bg-slate-700 rounded hover:bg-slate-600 text-xs" onclick="adjustSize(2)">A+</button>
-        <button class="px-3 py-1 bg-slate-700 rounded hover:bg-slate-600 text-xs" onclick="adjustSize(-2)">A-</button>
+      <div class="flex flex-wrap gap-2 p-2 bg-slate-800 rounded-t-xl border-x border-t border-slate-700">
+        <button class="w-8 h-8 flex items-center justify-center bg-slate-700 rounded hover:bg-slate-600 font-bold" onclick="doCmd('bold')">B</button>
+        <button class="w-8 h-8 flex items-center justify-center bg-slate-700 rounded hover:bg-slate-600 underline font-bold" onclick="doCmd('underline')">U</button>
+        <input type="color" id="colorPicker" class="w-8 h-8 bg-transparent border-none cursor-pointer" oninput="doCmd('foreColor', this.value)" title="Warna Teks" />
+        <div class="h-8 w-[1px] bg-slate-700 mx-1"></div>
+        <button class="px-3 h-8 bg-slate-700 rounded hover:bg-slate-600 text-xs font-bold" onclick="adjustSize(2)">A+</button>
+        <button class="px-3 h-8 bg-slate-700 rounded hover:bg-slate-600 text-xs font-bold" onclick="adjustSize(-2)">A-</button>
         <div class="flex-1 text-right">
-            <button id="btnExport" class="px-3 py-1 bg-indigo-900/50 text-[10px] rounded">JSON Export</button>
+            <button id="btnExport" class="px-3 h-8 bg-indigo-900/40 text-[10px] rounded-lg border border-indigo-500/30">JSON</button>
         </div>
       </div>
 
-      <div id="editor" class="editor" contenteditable="true" spellcheck="false"></div>
+      <div id="editor" class="editor" contenteditable="true" spellcheck="false" placeholder="Mula menulis nota anda di sini..."></div>
     </section>
 
   </main>
@@ -105,6 +114,7 @@
       appId: "1:147729735248:web:f6771fee76727436a0fb55"
     };
 
+    // Initialize
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
@@ -113,13 +123,16 @@
       uid: null,
       currentSubjId: null,
       currentTopicId: null,
-      saveTimer: null
+      saveTimer: null,
+      allSubjects: [],
+      allTopics: []
     };
 
     // ================== NAVIGATION ==================
     function showView(id) {
       document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
       document.getElementById('view-' + id).classList.remove('hidden');
+      window.scrollTo(0,0);
     }
 
     auth.onAuthStateChanged(user => {
@@ -135,27 +148,40 @@
     });
 
     document.getElementById('btnGoogle').onclick = () => {
-      auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch(err => alert(err.message));
     };
-    document.getElementById('btnLogout').onclick = () => auth.signOut();
+    
+    document.getElementById('btnLogout').onclick = () => {
+      if(confirm('Log keluar?')) auth.signOut();
+    };
 
-    // ================== LOGIK DATA (Subjek -> Topik) ==================
+    // ================== DATA MANAGEMENT ==================
     function usersCol() { return db.collection('users').doc(state.uid); }
 
     async function loadSubjects() {
       const snap = await usersCol().collection('subjects').orderBy('name').get();
+      state.allSubjects = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      renderSubjects();
+    }
+
+    function renderSubjects() {
+      const q = document.getElementById('searchSubjects').value.toLowerCase();
       const list = document.getElementById('listSubjects');
       list.innerHTML = '';
-      snap.forEach(doc => {
-        const d = doc.data();
+      
+      state.allSubjects.filter(s => s.name.toLowerCase().includes(q)).forEach(s => {
         const div = document.createElement('div');
-        div.className = "bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center";
+        div.className = "item-card bg-slate-800/80 p-4 rounded-xl border border-slate-700 flex justify-between items-center shadow-md";
         div.innerHTML = `
-          <button class="font-bold flex-1 text-left">${d.name}</button>
-          <button class="text-xs text-red-500 ml-4 delete-btn">Padam</button>
+          <button class="font-bold flex-1 text-left text-slate-200">${s.name}</button>
+          <button class="text-[10px] bg-red-900/30 text-red-400 px-2 py-1 rounded hover:bg-red-900/50 transition">Padam</button>
         `;
-        div.querySelector('button').onclick = () => openSubject(doc.id, d.name);
-        div.querySelector('.delete-btn').onclick = () => deleteItem('subjects', doc.id, loadSubjects);
+        div.querySelector('button').onclick = () => openSubject(s.id, s.name);
+        div.querySelector('button:last-child').onclick = (e) => {
+          e.stopPropagation();
+          deleteItem('subjects', s.id, loadSubjects);
+        };
         list.appendChild(div);
       });
     }
@@ -169,38 +195,43 @@
 
     async function loadTopics() {
       const snap = await usersCol().collection('subjects').doc(state.currentSubjId).collection('topics').orderBy('name').get();
+      state.allTopics = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      renderTopics();
+    }
+
+    function renderTopics() {
+      const q = document.getElementById('searchTopics').value.toLowerCase();
       const list = document.getElementById('listTopics');
       list.innerHTML = '';
-      snap.forEach(doc => {
-        const d = doc.data();
+
+      state.allTopics.filter(t => t.name.toLowerCase().includes(q)).forEach(t => {
         const div = document.createElement('div');
-        div.className = "bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center shadow-lg";
+        div.className = "item-card bg-slate-800/80 p-4 rounded-xl border border-slate-700 flex justify-between items-center shadow-md";
         div.innerHTML = `
           <div class="flex-1">
-            <div class="font-bold text-white">${d.name}</div>
-            <div class="text-[10px] text-slate-500">Klik "Buka Editor" untuk mula menulis</div>
+            <div class="font-bold text-white text-sm">${t.name}</div>
           </div>
-          <button class="bg-indigo-600 px-3 py-2 rounded-lg text-xs font-bold mr-2">Buka Editor</button>
-          <button class="text-xs text-red-500 delete-btn">🗑️</button>
+          <button class="bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-xs font-bold mr-2 transition">Buka Editor</button>
+          <button class="p-1.5 text-slate-500 hover:text-red-500 transition">🗑️</button>
         `;
-        div.querySelector('button').onclick = () => openEditor(doc.id, d.name);
-        div.querySelector('.delete-btn').onclick = () => deleteItem(`subjects/${state.currentSubjId}/topics`, doc.id, loadTopics);
+        div.querySelector('button').onclick = () => openEditor(t.id, t.name);
+        div.querySelector('button:last-child').onclick = () => deleteItem(`subjects/${state.currentSubjId}/topics`, t.id, loadTopics);
         list.appendChild(div);
       });
     }
 
-    // ================== LOGIK EDITOR (Fungsi App 1) ==================
+    // ================== EDITOR LOGIC (App 1) ==================
     async function openEditor(id, name) {
       state.currentTopicId = id;
       document.getElementById('labelTopic').textContent = name;
-      document.getElementById('editor').innerHTML = 'Memuatkan...';
+      const editorEl = document.getElementById('editor');
+      editorEl.innerHTML = '<p class="text-slate-500">Memuatkan nota...</p>';
       showView('editor');
 
       const doc = await usersCol().collection('subjects').doc(state.currentSubjId).collection('topics').doc(id).get();
-      document.getElementById('editor').innerHTML = doc.data().content || '';
+      editorEl.innerHTML = doc.data().content || '';
     }
 
-    // Editor Commands
     function doCmd(cmd, val = null) {
       document.execCommand(cmd, false, val);
       document.getElementById('editor').focus();
@@ -211,15 +242,15 @@
       if (!sel.rangeCount) return;
       const node = sel.anchorNode.parentElement;
       const currentSize = parseFloat(window.getComputedStyle(node).fontSize) || 16;
-      node.style.fontSize = (currentSize + delta) + 'px';
+      node.style.fontSize = Math.max(8, currentSize + delta) + 'px';
     }
 
-    // Auto-Save (5 saat debounced - App 1)
+    // Auto-Save Debounce
     const editorEl = document.getElementById('editor');
     editorEl.addEventListener('input', () => {
-      document.getElementById('saveStatus').textContent = 'Menulis...';
+      document.getElementById('saveStatus').textContent = 'Sedang menaip...';
       clearTimeout(state.saveTimer);
-      state.saveTimer = setTimeout(saveData, 5000);
+      state.saveTimer = setTimeout(saveData, 3000); // Cepat sikit, 3 saat
     });
 
     async function saveData() {
@@ -229,21 +260,24 @@
           content: editorEl.innerHTML,
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
-        document.getElementById('saveStatus').textContent = 'Tersimpan (Cloud)';
+        document.getElementById('saveStatus').textContent = 'Disimpan secara automatik';
       } catch (e) {
-        document.getElementById('saveStatus').textContent = 'Offline - Gagal Simpan';
+        document.getElementById('saveStatus').textContent = 'Gagal menyimpan (Offline)';
       }
     }
 
-    // Navigasi Kembali & Simpan
     document.getElementById('btnBackToTopics').onclick = async () => {
+      document.getElementById('saveStatus').textContent = 'Menyimpan sebelum keluar...';
       await saveData();
       showView('topics');
     };
 
-    // Tambah Data Baru
+    // ================== UTILS ==================
+    document.getElementById('searchSubjects').oninput = renderSubjects;
+    document.getElementById('searchTopics').oninput = renderTopics;
+
     document.getElementById('btnAddSubject').onclick = async () => {
-      const name = prompt('Nama Subjek?');
+      const name = prompt('Nama Subjek Baru?');
       if (name) {
         await usersCol().collection('subjects').add({ name, createdAt: Date.now() });
         loadSubjects();
@@ -251,7 +285,7 @@
     };
 
     document.getElementById('btnAddTopic').onclick = async () => {
-      const name = prompt('Nama Topik?');
+      const name = prompt('Nama Topik Baru?');
       if (name) {
         await usersCol().collection('subjects').doc(state.currentSubjId).collection('topics').add({ 
           name, 
@@ -263,24 +297,25 @@
     };
 
     async function deleteItem(path, id, callback) {
-      if(confirm('Padam data ini?')) {
+      if(confirm('Data ini akan dipadam secara kekal. Teruskan?')) {
         await usersCol().collection(path).doc(id).delete();
         callback();
       }
     }
 
-    // Export JSON
     document.getElementById('btnExport').onclick = () => {
       const data = {
-        title: document.getElementById('labelTopic').textContent,
-        content: editorEl.innerHTML
+        topic: document.getElementById('labelTopic').textContent,
+        content: editorEl.innerHTML,
+        exportedAt: new Date().toISOString()
       };
-      const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `nota-${state.currentTopicId}.json`;
+      a.download = `Nota_${data.topic.replace(/\s+/g, '_')}.json`;
       a.click();
+      URL.revokeObjectURL(url);
     };
 
   </script>
