@@ -3,112 +3,84 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
-  <title>Wan-Law Pro v3</title>
-
+  <title>Wan-Law v4 Fast</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
   <style>
     :root { --bg: #020617; }
-    body { 
-      background-color: var(--bg); 
-      color: #e5e7eb; 
-      font-family: system-ui, sans-serif;
-      overflow-x: hidden; /* Elak skrin lari ke tepi */
-    }
+    body { background-color: var(--bg); color: #e5e7eb; font-family: system-ui, sans-serif; overflow-x: hidden; }
     .editor {
-      min-height: 500px;
-      background: #0b1220;
-      border: 1px solid #1f2937;
-      border-radius: 0 0 12px 12px;
-      padding: 16px;
-      outline: none;
-      color: white;
-      font-size: 16px;
-      line-height: 1.6;
-      word-break: break-word;
-    }
-    /* Fix untuk tajuk panjang supaya turun baris */
-    .break-text {
-      word-break: break-word;
-      overflow-wrap: break-word;
-      white-space: normal;
+      min-height: 500px; background: #0b1220; border: 1px solid #1f2937;
+      border-radius: 0 0 12px 12px; padding: 16px; outline: none; color: white;
+      font-size: 16px; line-height: 1.6; word-break: break-word;
     }
     .hidden { display: none !important; }
+    .break-text { word-break: break-word; overflow-wrap: break-word; white-space: normal; }
   </style>
 </head>
 <body class="min-h-screen w-full">
 
-  <header class="w-full flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/80 sticky top-0 z-50 backdrop-blur-md">
-    <h1 class="text-lg font-bold text-indigo-400">Wan-Law <span class="text-white text-xs font-normal">v3</span></h1>
+  <header class="w-full flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/80 sticky top-0 z-50">
+    <h1 class="text-lg font-bold text-indigo-400">Wan-Law <span class="text-white text-xs font-normal">v4 Fast</span></h1>
     <button id="btnLogout" class="hidden px-2 py-1 rounded bg-red-900/20 text-red-400 text-[10px] border border-red-900/50">Logout</button>
   </header>
 
-  <main class="w-full max-w-4xl mx-auto p-4 box-border">
-
+  <main class="w-full max-w-4xl mx-auto p-4">
     <section id="view-login" class="mt-20 flex justify-center px-4">
       <div class="w-full max-w-md bg-slate-800/50 rounded-2xl p-6 border border-slate-700 text-center shadow-xl">
-        <h2 class="text-xl font-bold mb-4">Akses Nota</h2>
-        <button id="btnGoogle" class="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold transition shadow-lg">
-          Log masuk Google
-        </button>
+        <button id="btnGoogle" class="w-full py-4 rounded-xl bg-indigo-600 font-bold transition">Log masuk Google</button>
       </div>
     </section>
 
     <section id="view-home" class="hidden">
-      <div class="flex flex-col sm:flex-row gap-2 mb-6">
-        <input id="searchFiles" type="text" placeholder="Cari fail..." class="flex-1 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none text-sm" />
-        <button id="btnAddFile" class="w-full sm:w-auto px-6 py-3 rounded-xl bg-indigo-600 font-bold text-sm">Tambah</button>
+      <div class="flex gap-2 mb-6">
+        <input id="searchFiles" type="text" placeholder="Cari fail..." class="flex-1 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-sm focus:outline-none" />
+        <button id="btnAddFile" class="px-6 py-3 rounded-xl bg-indigo-600 font-bold text-sm">Tambah</button>
       </div>
       <div id="listFiles" class="grid gap-3 w-full"></div>
     </section>
 
     <section id="view-folders" class="hidden">
       <div class="flex items-center justify-between mb-4 gap-2">
-        <button onclick="showView('home')" class="shrink-0 text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded">←</button>
-        <h3 id="labelFile" class="font-bold text-indigo-400 text-sm truncate break-text"></h3>
+        <button onclick="showView('home')" class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded">←</button>
+        <h3 id="labelFile" class="font-bold text-indigo-400 text-sm truncate"></h3>
       </div>
-      <div class="flex flex-col sm:flex-row gap-2 mb-6">
-        <input id="searchFolders" type="text" placeholder="Cari folder..." class="flex-1 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none text-sm" />
-        <button id="btnAddFolder" class="w-full sm:w-auto px-6 py-3 rounded-xl bg-indigo-600 font-bold text-sm">Tambah</button>
+      <div class="flex gap-2 mb-6">
+        <input id="searchFolders" type="text" placeholder="Cari folder..." class="flex-1 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-sm focus:outline-none" />
+        <button id="btnAddFolder" class="px-6 py-3 rounded-xl bg-indigo-600 font-bold text-sm">Tambah</button>
       </div>
       <div id="listFolders" class="grid gap-3 w-full"></div>
     </section>
 
     <section id="view-note" class="hidden">
       <div class="flex items-center justify-between mb-3 gap-2">
-        <button id="btnBackToFolders" class="shrink-0 px-3 py-1.5 rounded bg-slate-800 text-[10px] font-bold">← KEMBALI</button>
-        <div class="text-right min-w-0">
-          <h3 id="labelFolder" class="font-bold text-indigo-400 text-xs truncate break-text"></h3>
-          <p id="saveStatus" class="text-[9px] text-slate-500 italic">Auto-simpan Aktif</p>
+        <button id="btnBackToFolders" class="px-3 py-1.5 rounded bg-slate-800 text-[10px] font-bold">← KEMBALI</button>
+        <div class="text-right">
+          <h3 id="labelFolder" class="font-bold text-indigo-400 text-xs truncate"></h3>
+          <p id="saveStatus" class="text-[9px] text-slate-500 h-3"></p>
         </div>
       </div>
 
       <div class="flex flex-wrap items-center gap-1.5 p-2 bg-slate-800 rounded-t-xl border-x border-t border-slate-700">
         <button class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold" onclick="doCmd('bold')">B</button>
         <button class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded underline font-bold" onclick="doCmd('underline')">U</button>
-        <input type="color" oninput="doCmd('foreColor', this.value)" class="w-9 h-9 bg-transparent border-none cursor-pointer" />
-        <button class="px-3 h-9 bg-slate-700 rounded text-xs font-bold" onclick="adjustSize(2)">A+</button>
-        <button class="px-3 h-9 bg-slate-700 rounded text-xs font-bold" onclick="adjustSize(-2)">A-</button>
+        <input type="color" oninput="doCmd('foreColor', this.value)" class="w-9 h-9 bg-transparent cursor-pointer" />
         <button id="btnHistory" class="ml-auto px-3 h-9 bg-amber-600/20 text-amber-400 text-[10px] rounded border border-amber-900/50 font-bold">🕒 SEJARAH</button>
       </div>
-
       <div id="editor" class="editor" contenteditable="true" spellcheck="false"></div>
       
       <div id="modalHistory" class="fixed inset-0 bg-black/90 z-[100] hidden flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
-          <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
-            <h4 class="font-bold text-sm">PULIHKAN NOTA</h4>
-            <button onclick="toggleHistory(false)" class="text-slate-400 text-2xl px-2">&times;</button>
+          <div class="p-4 border-b border-slate-800 flex justify-between bg-slate-800/50">
+            <h4 class="font-bold text-sm">PULIHKAN VERSI</h4>
+            <button onclick="toggleHistory(false)" class="text-slate-400 px-2">&times;</button>
           </div>
-          <div id="historyList" class="p-4 flex flex-col gap-3">
-            </div>
+          <div id="historyList" class="p-4 flex flex-col gap-3"></div>
         </div>
       </div>
     </section>
-
   </main>
 
   <script>
@@ -125,12 +97,11 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    let state = { uid: null, fileId: null, folderId: null, noteId: null, saveTimer: null };
+    let state = { uid: null, fileId: null, folderId: null, noteId: null, saveTimer: null, statusTimer: null };
 
     function showView(id) {
       document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
       document.getElementById('view-' + id).classList.remove('hidden');
-      window.scrollTo(0,0);
     }
 
     auth.onAuthStateChanged(user => {
@@ -141,49 +112,32 @@
     document.getElementById('btnGoogle').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
     document.getElementById('btnLogout').onclick = () => auth.signOut();
 
-    // --- RENDER HELPERS ---
+    // --- CRUD ---
     async function loadFiles() {
       const snap = await db.collection('users').doc(state.uid).collection('files').orderBy('createdAt', 'desc').get();
-      const list = document.getElementById('listFiles');
-      list.innerHTML = '';
+      const list = document.getElementById('listFiles'); list.innerHTML = '';
       snap.forEach(doc => {
         const d = doc.data();
         const div = document.createElement('div');
-        div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex flex-wrap justify-between items-center gap-2";
-        div.innerHTML = `
-          <button class="font-bold flex-1 text-left break-text text-sm">${d.title || 'Tanpa Nama'}</button>
-          <div class="flex gap-2">
-            <button class="p-2 bg-slate-700 rounded text-xs edit-btn">✏️</button>
-            <button class="p-2 bg-red-900/20 text-red-500 rounded text-xs del-btn">🗑️</button>
-          </div>`;
-        div.querySelector('button').onclick = () => openFile(doc.id, d.title);
+        div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex justify-between items-center";
+        div.innerHTML = `<button class="font-bold flex-1 text-left text-sm break-text">${d.title || 'Fail'}</button>
+          <div class="flex gap-2"><button class="p-2 bg-slate-700 rounded text-xs edit-btn">✏️</button><button class="p-2 bg-red-900/20 text-red-500 rounded text-xs del-btn">🗑️</button></div>`;
+        div.querySelector('button').onclick = () => { state.fileId = doc.id; document.getElementById('labelFile').textContent = d.title; showView('folders'); loadFolders(); };
         div.querySelector('.edit-btn').onclick = () => editTitle('files', doc.id, d.title, loadFiles);
         div.querySelector('.del-btn').onclick = () => deleteItem('files', doc.id, loadFiles);
         list.appendChild(div);
       });
     }
 
-    function openFile(id, title) {
-      state.fileId = id;
-      document.getElementById('labelFile').textContent = title;
-      showView('folders');
-      loadFolders();
-    }
-
     async function loadFolders() {
       const snap = await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').orderBy('createdAt', 'desc').get();
-      const list = document.getElementById('listFolders');
-      list.innerHTML = '';
+      const list = document.getElementById('listFolders'); list.innerHTML = '';
       snap.forEach(doc => {
         const d = doc.data();
         const div = document.createElement('div');
-        div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex flex-wrap justify-between items-center gap-2";
-        div.innerHTML = `
-          <button class="font-bold flex-1 text-left break-text text-sm">${d.title || 'Folder'}</button>
-          <div class="flex gap-2">
-            <button class="p-2 bg-slate-700 rounded text-xs edit-btn">✏️</button>
-            <button class="p-2 bg-red-900/20 text-red-500 rounded text-xs del-btn">🗑️</button>
-          </div>`;
+        div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex justify-between items-center";
+        div.innerHTML = `<button class="font-bold flex-1 text-left text-sm break-text">${d.title || 'Folder'}</button>
+          <div class="flex gap-2"><button class="p-2 bg-slate-700 rounded text-xs edit-btn">✏️</button><button class="p-2 bg-red-900/20 text-red-500 rounded text-xs del-btn">🗑️</button></div>`;
         div.querySelector('button').onclick = () => openNote(doc.id, d.title);
         div.querySelector('.edit-btn').onclick = () => editTitle(`files/${state.fileId}/folders`, doc.id, d.title, loadFolders);
         div.querySelector('.del-btn').onclick = () => deleteItem(`files/${state.fileId}/folders`, doc.id, loadFolders);
@@ -192,10 +146,8 @@
     }
 
     async function openNote(id, title) {
-      state.folderId = id;
-      document.getElementById('labelFolder').textContent = title;
-      const editor = document.getElementById('editor');
-      editor.innerHTML = 'Memuatkan...';
+      state.folderId = id; document.getElementById('labelFolder').textContent = title;
+      const editor = document.getElementById('editor'); editor.innerHTML = 'Memuatkan...';
       showView('note');
       const noteRef = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(id).collection('notes');
       const snap = await noteRef.limit(1).get();
@@ -207,92 +159,77 @@
       }
     }
 
-    // --- AUTO SAVE & HISTORY (The Logic) ---
+    // --- SAVING & HISTORY LOGIC ---
     document.getElementById('editor').oninput = () => {
-      document.getElementById('saveStatus').textContent = 'Menaip...';
+      const status = document.getElementById('saveStatus');
+      status.textContent = 'Menaip...';
+      clearTimeout(state.statusTimer);
+      state.statusTimer = setTimeout(() => { status.textContent = ''; }, 2000);
+
       clearTimeout(state.saveTimer);
       state.saveTimer = setTimeout(async () => {
         const content = document.getElementById('editor').innerHTML;
-        const notePath = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
+        const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
         
-        await notePath.set({ content, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        await noteDoc.update({ content, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
         
-        // Simpan versi Real-time (10 kali back)
-        const histRef = notePath.collection('history');
+        const histRef = noteDoc.collection('history');
+        
+        // Versi Real-time (Limit 5)
         await histRef.add({ content, timestamp: firebase.firestore.FieldValue.serverTimestamp(), type: 'realtime' });
-        
-        const oldDocs = await histRef.where('type', '==', 'realtime').orderBy('timestamp', 'desc').get();
-        if(oldDocs.size > 10) oldDocs.docs.slice(10).forEach(d => d.ref.delete());
+        const rtDocs = await histRef.where('type', '==', 'realtime').orderBy('timestamp', 'desc').get();
+        if(rtDocs.size > 5) rtDocs.docs.slice(5).forEach(d => d.ref.delete());
 
-        document.getElementById('saveStatus').textContent = 'Disimpan';
-      }, 2500);
+        // Versi Semalam (Hanya update jika > 24 jam)
+        const dailySnap = await histRef.where('type', '==', 'daily').orderBy('timestamp', 'desc').limit(1).get();
+        const now = new Date().getTime();
+        if(dailySnap.empty || (now - dailySnap.docs[0].data().timestamp.toDate().getTime() > 86400000)) {
+          await histRef.add({ content, timestamp: firebase.firestore.FieldValue.serverTimestamp(), type: 'daily' });
+          const dyDocs = await histRef.where('type', '==', 'daily').orderBy('timestamp', 'desc').get();
+          if(dyDocs.size > 1) dyDocs.docs.slice(1).forEach(d => d.ref.delete());
+        }
+
+        status.textContent = 'Tersimpan';
+        setTimeout(() => { if(status.textContent === 'Tersimpan') status.textContent = ''; }, 2000);
+      }, 3000);
     };
 
     async function toggleHistory(show) {
       const modal = document.getElementById('modalHistory');
-      const list = document.getElementById('historyList');
       if (!show) return modal.classList.add('hidden');
-      
       modal.classList.remove('hidden');
-      list.innerHTML = '<p class="text-center text-xs animate-pulse">Menyusun sejarah...</p>';
-      
-      const notePath = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
-      const histRef = notePath.collection('history');
+      const list = document.getElementById('historyList');
+      list.innerHTML = '<p class="text-xs text-center animate-pulse">Memuatkan...</p>';
 
-      // Ambil Real-time (Paling baru)
+      const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
+      const histRef = noteDoc.collection('history');
+
       const rtSnap = await histRef.where('type', '==', 'realtime').orderBy('timestamp', 'desc').limit(1).get();
-      // Ambil Semalam
-      const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-      const semalamSnap = await histRef.where('timestamp', '<=', yesterday).orderBy('timestamp', 'desc').limit(1).get();
-      // Ambil Minggu Lepas
-      const lastWeek = new Date(); lastWeek.setDate(lastWeek.getDate() - 7);
-      const mingguSnap = await histRef.where('timestamp', '<=', lastWeek).orderBy('timestamp', 'desc').limit(1).get();
+      const dySnap = await histRef.where('type', '==', 'daily').orderBy('timestamp', 'desc').limit(1).get();
 
       list.innerHTML = '';
-      const createHistBtn = (snap, label, color) => {
+      const renderBtn = (snap, label, col) => {
         if(snap.empty) return;
         const d = snap.docs[0].data();
-        const time = d.timestamp?.toDate().toLocaleString() || 'Baru tadi';
         const btn = document.createElement('button');
-        btn.className = `w-full p-4 rounded-xl border border-${color}-900/50 bg-${color}-900/10 text-left flex flex-col gap-1`;
-        btn.innerHTML = `<span class="text-[10px] font-bold text-${color}-400 uppercase tracking-widest">${label}</span>
-                         <span class="text-xs font-semibold text-white">${time}</span>`;
-        btn.onclick = () => { if(confirm(`Pulihkan versi ${label}?`)) { document.getElementById('editor').innerHTML = d.content; modal.classList.add('hidden'); }};
+        btn.className = `w-full p-4 rounded-xl border border-${col}-900 bg-${col}-900/10 text-left`;
+        btn.innerHTML = `<span class="text-[10px] font-bold text-${col}-400 uppercase">${label}</span><br><span class="text-xs">${d.timestamp.toDate().toLocaleString()}</span>`;
+        btn.onclick = () => { if(confirm(`Pulihkan ${label}?`)) { document.getElementById('editor').innerHTML = d.content; modal.classList.add('hidden'); }};
         list.appendChild(btn);
       }
-
-      createHistBtn(rtSnap, "Minit Terakhir (Real-time)", "blue");
-      createHistBtn(semalamSnap, "Versi Semalam", "emerald");
-      createHistBtn(mingguSnap, "Versi Minggu Lepas", "amber");
-      
-      if(list.innerHTML === '') list.innerHTML = '<p class="text-center text-xs opacity-50">Tiada sejarah lama dijumpai.</p>';
+      renderBtn(rtSnap, "Versi Tadi (Real-time)", "blue");
+      renderBtn(dySnap, "Versi Semalam (24 Jam)", "emerald");
+      if(list.innerHTML === '') list.innerHTML = '<p class="text-center text-xs opacity-50">Tiada sejarah.</p>';
     }
 
+    // --- UTILS ---
     document.getElementById('btnHistory').onclick = () => toggleHistory(true);
-
-    // --- CRUD UTILS ---
-    async function editTitle(path, id, old, cb) {
-      const n = prompt('Tukar Nama:', old);
-      if(n && n !== old) { await db.collection('users').doc(state.uid).collection(path).doc(id).update({ title: n }); cb(); }
-    }
-    async function deleteItem(path, id, cb) {
-      if(confirm('Padam item ini?')) { await db.collection('users').doc(state.uid).collection(path).doc(id).delete(); cb(); }
-    }
-    document.getElementById('btnAddFile').onclick = async () => {
-      const t = prompt('Tajuk Fail?');
-      if(t) { await db.collection('users').doc(state.uid).collection('files').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }
-    };
-    document.getElementById('btnAddFolder').onclick = async () => {
-      const t = prompt('Tajuk Folder?');
-      if(t) { await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }
-    };
-
     document.getElementById('btnBackToFolders').onclick = () => showView('folders');
+    async function editTitle(p,id,o,cb){ const n = prompt('Tukar:',o); if(n && n!==o){ await db.collection('users').doc(state.uid).collection(p).doc(id).update({title:n}); cb(); } }
+    async function deleteItem(p,id,cb){ if(confirm('Padam?')){ await db.collection('users').doc(state.uid).collection(p).doc(id).delete(); cb(); } }
+    document.getElementById('btnAddFile').onclick = async () => { const t = prompt('Fail Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }};
+    document.getElementById('btnAddFolder').onclick = async () => { const t = prompt('Folder Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }};
     function doCmd(c,v=null){ document.execCommand(c,false,v); document.getElementById('editor').focus(); }
-    function adjustSize(d){ 
-      const n = window.getSelection().anchorNode?.parentElement;
-      if(n){ const c = parseFloat(window.getComputedStyle(n).fontSize)||16; n.style.fontSize=(c+d)+'px'; }
-    }
   </script>
 </body>
 </html>
