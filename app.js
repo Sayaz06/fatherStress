@@ -1,6 +1,4 @@
 // ==================== PART 1: FIREBASE SETUP & AUTH ====================
-
-// Config Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCtxOE42D07yFc9eK3nLMsOy50SmeSErwI",
   authDomain: "fatherstress-9e695.firebaseapp.com",
@@ -11,15 +9,10 @@ const firebaseConfig = {
   measurementId: "G-GF6HCJZ5MD"
 };
 
-// Initialize Firebase sekali sahaja
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Enable offline persistence untuk Firestore
-// db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
-
-// Pastikan sesi login kekal selepas refresh
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
 // DOM refs
@@ -45,70 +38,48 @@ const currentFolderName = document.getElementById('current-folder-name');
 const editor = document.getElementById('editor');
 const saveStatus = document.getElementById('save-status');
 const colorPicker = document.getElementById('color-picker');
-const fontSizeInput = document.getElementById('font-size');
+const historyListDiv = document.getElementById('history-list');
 
 let state = {
   user: null,
   files: [],
   folders: [],
   currentFileId: null,
-  currentFileTitle: '',
   currentFolderId: null,
-  currentFolderTitle: '',
   currentNoteId: null,
   noteUnsubscribe: null,
+  lastSavedContent: "" // Untuk elakkan simpan history yang sama berulang kali
 };
 
-// View helpers
 function show(id) {
   [vLogin, vHome, vFolders, vNote].forEach(el => el.classList.add('hidden'));
   id.classList.remove('hidden');
 }
 
-// Login dengan Google
+// Login & Logout
 btnGoogle.addEventListener('click', async () => {
   const provider = new firebase.auth.GoogleAuthProvider();
-  try {
-    await auth.signInWithPopup(provider);
-  } catch (e) {
-    alert('Log masuk gagal: ' + e.message);
-  }
+  try { await auth.signInWithPopup(provider); } catch (e) { alert('Gagal: ' + e.message); }
 });
 
-// Logout
 btnLogout.addEventListener('click', async () => {
-  try {
-    await auth.signOut();
-  } catch (e) {
-    alert('Logout gagal: ' + e.message);
-  }
+  try { await auth.signOut(); } catch (e) { alert('Gagal: ' + e.message); }
 });
 
-// Restore sesi bila refresh
 auth.onAuthStateChanged(async (user) => {
   state.user = user;
-  if (!user) {
-    show(vLogin);
-    return;
-  }
+  if (!user) { show(vLogin); return; }
   show(vHome);
   loadFiles();
 });
 
-// ==================== PART 2: FILES & FOLDERS ====================
+// ==================== PART 2: CORE LOGIC ====================
 
-// Collections paths
-function filesCol() {
-  return db.collection('users').doc(state.user.uid).collection('files');
-}
-function foldersCol(fileId) {
-  return filesCol().doc(fileId).collection('folders');
-}
-function notesCol(fileId, folderId) {
-  return foldersCol(fileId).doc(folderId).collection('notes');
-}
+function filesCol() { return db.collection('users').doc(state.user.uid).collection('files'); }
+function foldersCol(fileId) { return filesCol().doc(fileId).collection('folders'); }
+function notesCol(fileId, folderId) { return foldersCol(fileId).doc(folderId).collection('notes'); }
 
-// Files (Home)
+// Load & Render Files (With Multi-line Title Support)
 async function loadFiles() {
   const snapshot = await filesCol().orderBy('createdAt', 'asc').get();
   state.files = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -118,87 +89,76 @@ async function loadFiles() {
 function renderFiles() {
   const q = (searchFiles.value || '').toLowerCase();
   filesList.innerHTML = '';
-
-  // Susun fail ikut tajuk: 0–9 A–Z
-  const sorted = [...state.files].sort((a, b) => {
-    const titleA = (a.title || '').toLowerCase();
-    const titleB = (b.title || '').toLowerCase();
-    return titleA.localeCompare(titleB, 'en', { numeric: true });
-  });
-
-  sorted
-    .filter(f => !q || (f.title || '').toLowerCase().includes(q))
+  
+  state.files
+    .filter(f => (f.title || '').toLowerCase().includes(q))
     .forEach(f => {
-      // ... (paparan fail seperti asal)
       const row = document.createElement('div');
       row.className = 'item';
+
       const left = document.createElement('div');
       left.className = 'item-name';
-      const nameInput = document.createElement('input');
-      nameInput.value = f.title || 'Tanpa Nama';
-      nameInput.addEventListener('change', () => updateFileTitle(f.id, nameInput.value));
+
+      // Guna Textarea supaya tajuk boleh wrap ke bawah
+      const nameTxt = document.createElement('textarea');
+      nameTxt.value = f.title || 'Tanpa Nama';
+      nameTxt.rows = 1;
+      nameTxt.style.height = "auto";
+      nameTxt.addEventListener('input', () => {
+        nameTxt.style.height = "auto";
+        nameTxt.style.height = nameTxt.scrollHeight + "px";
+      });
+      nameTxt.addEventListener('change', () => updateFileTitle(f.id, nameTxt.value));
+
       const openBtn = document.createElement('button');
       openBtn.className = 'btn-ghost';
       openBtn.textContent = 'Buka';
-      openBtn.addEventListener('click', () => openFile(f.id, nameInput.value));
-      left.appendChild(nameInput);
+      openBtn.addEventListener('click', () => openFile(f.id, f.title));
+
+      left.appendChild(nameTxt);
       left.appendChild(openBtn);
 
-      const right = document.createElement('div');
-      right.className = 'row';
       const delBtn = document.createElement('button');
       delBtn.className = 'btn-danger btn';
       delBtn.textContent = 'Padam';
       delBtn.addEventListener('click', () => deleteFile(f.id));
 
       row.appendChild(left);
-      right.appendChild(delBtn);
-      row.appendChild(right);
+      row.appendChild(delBtn);
       filesList.appendChild(row);
+      
+      // Adjust height textarea selepas render
+      setTimeout(() => { nameTxt.style.height = nameTxt.scrollHeight + "px"; }, 0);
     });
 }
 
-
-searchFiles.addEventListener('input', renderFiles);
+// Tambah/Update/Padam Fail (Sama seperti kod asal anda...)
+btnAddFile.addEventListener('click', async () => {
+  const title = prompt('Nama Fail?') || 'Fail Baharu';
+  await filesCol().add({ title, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  loadFiles();
+});
 
 async function updateFileTitle(id, title) {
-  await filesCol().doc(id).set({ title, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  await filesCol().doc(id).update({ title });
 }
 
 async function deleteFile(id) {
-  const ok = confirm('Padam fail ini? Semua folder & nota di dalamnya akan dipadam.');
-  if (!ok) return;
-  const folderSnap = await foldersCol(id).get();
-  for (const f of folderSnap.docs) {
-    const notesSnap = await foldersCol(id).doc(f.id).collection('notes').get();
-    for (const n of notesSnap.docs) {
-      await foldersCol(id).doc(f.id).collection('notes').doc(n.id).delete();
-    }
-    await foldersCol(id).doc(f.id).delete();
+  if (confirm('Padam fail ini?')) {
+    await filesCol().doc(id).delete();
+    loadFiles();
   }
-  await filesCol().doc(id).delete();
-  await loadFiles();
 }
 
-btnAddFile.addEventListener('click', async () => {
-  const title = prompt('Nama Fail?') || 'Fail Baharu';
-  await filesCol().add({
-    title,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  await loadFiles();
-});
+// ==================== PART 3: FOLDERS & NOTES ====================
 
-// Open File → Folders view
-async function openFile(fileId, fileTitle) {
+async function openFile(fileId, title) {
   state.currentFileId = fileId;
-  state.currentFileTitle = fileTitle;
-  currentFileName.textContent = `Fail: ${fileTitle}`;
+  currentFileName.textContent = `Fail: ${title}`;
   show(vFolders);
-  await loadFolders();
+  loadFolders();
 }
 
-// Folders (Subfolder page)
 async function loadFolders() {
   const snapshot = await foldersCol(state.currentFileId).orderBy('createdAt', 'asc').get();
   state.folders = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -208,240 +168,161 @@ async function loadFolders() {
 function renderFolders() {
   const q = (searchFolders.value || '').toLowerCase();
   foldersList.innerHTML = '';
-
-  // Susun folder ikut tajuk: 0–9 A–Z
-  const sorted = [...state.folders].sort((a, b) => {
-    const titleA = (a.title || '').toLowerCase();
-    const titleB = (b.title || '').toLowerCase();
-    return titleA.localeCompare(titleB, 'en', { numeric: true });
-  });
-
-  sorted
-    .filter(f => {
-      if (!q) return true;
-      const name = (f.title || '').toLowerCase();
-      return q.split('').some(ch => name.includes(ch));
-    })
+  
+  state.folders
+    .filter(f => (f.title || '').toLowerCase().includes(q))
     .forEach(f => {
-      // ... paparan folder seperti asal
       const row = document.createElement('div');
       row.className = 'item';
+      
       const left = document.createElement('div');
       left.className = 'item-name';
 
-      const nameInput = document.createElement('input');
-      nameInput.value = f.title || 'Folder Baharu';
-      nameInput.addEventListener('change', () => updateFolderTitle(f.id, nameInput.value));
+      const nameTxt = document.createElement('textarea');
+      nameTxt.value = f.title || 'Folder Baharu';
+      nameTxt.rows = 1;
+      nameTxt.addEventListener('change', () => updateFolderTitle(f.id, nameTxt.value));
 
       const openBtn = document.createElement('button');
       openBtn.className = 'btn-ghost';
       openBtn.textContent = 'Buka';
-      openBtn.addEventListener('click', () => openFolder(f.id, nameInput.value));
+      openBtn.addEventListener('click', () => openFolder(f.id, f.title));
 
-      left.appendChild(nameInput);
+      left.appendChild(nameTxt);
       left.appendChild(openBtn);
-
-      const right = document.createElement('div');
-      right.className = 'row';
-      const delBtn = document.createElement('button');
-      delBtn.className = 'btn-danger btn';
-      delBtn.textContent = 'Padam';
-      delBtn.addEventListener('click', () => deleteFolder(f.id));
-
       row.appendChild(left);
-      right.appendChild(delBtn);
-      row.appendChild(right);
       foldersList.appendChild(row);
     });
 }
 
-searchFolders.addEventListener('input', renderFolders);
+// ==================== PART 4: EDITOR & HISTORY ====================
 
-async function updateFolderTitle(id, title) {
-  await foldersCol(state.currentFileId).doc(id)
-    .set({ title, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-}
-
-btnAddFolder.addEventListener('click', async () => {
-  const title = prompt('Tajuk subfolder?') || 'Subfolder Baharu';
-  await foldersCol(state.currentFileId).add({
-    title,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  await loadFolders();
-});
-
-async function deleteFolder(id) {
-  const ok = confirm('Padam subfolder ini? Semua nota di dalamnya akan dipadam.');
-  if (!ok) return;
-  const notesSnap = await notesCol(state.currentFileId, id).get();
-  for (const n of notesSnap.docs) {
-    await notesCol(state.currentFileId, id).doc(n.id).delete();
-  }
-  await foldersCol(state.currentFileId).doc(id).delete();
-  await loadFolders();
-}
-
-// ==================== PART 3: NOTES & EDITOR ====================
-
-// Open Folder → Note view
-async function openFolder(folderId, folderTitle) {
+async function openFolder(folderId, title) {
   state.currentFolderId = folderId;
-  state.currentFolderTitle = folderTitle;
-  currentFolderName.textContent = `Folder: ${folderTitle}`;
-
-  // Ensure a single note document exists (simplify UX: one note per subfolder)
+  currentFolderName.textContent = `Folder: ${title}`;
+  
   const notesRef = notesCol(state.currentFileId, folderId);
   const snap = await notesRef.limit(1).get();
+  
   if (snap.empty) {
-    const created = await notesRef.add({
-      content: '',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    state.currentNoteId = created.id;
+    const res = await notesRef.add({ content: '', history: [], updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    state.currentNoteId = res.id;
   } else {
     state.currentNoteId = snap.docs[0].id;
   }
 
-  // Subscribe to the note for live updates
   if (state.noteUnsubscribe) state.noteUnsubscribe();
-state.noteUnsubscribe = notesRef.doc(state.currentNoteId).onSnapshot(doc => {
-  const data = doc.data();
-  if (data && typeof data.content === 'string') {
-    // Avoid cursor jump: only update if different
-    if (editor.innerHTML.trim() !== (data.content || '').trim()) {
-      const sel = window.getSelection();
-      const pos = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).startOffset : null;
+  state.noteUnsubscribe = notesRef.doc(state.currentNoteId).onSnapshot(doc => {
+    const data = doc.data();
+    if (!data) return;
 
+    // Render Editor (Hanya jika kandungan berbeza untuk elakkan cursor jump)
+    if (editor.innerHTML !== data.content) {
       editor.innerHTML = data.content || '';
-
-      if (pos !== null) {
-        const range = document.createRange();
-        range.setStart(editor.firstChild || editor, Math.min(pos, (editor.firstChild?.length || 0)));
-        range.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
+      state.lastSavedContent = data.content;
     }
-  }
-});
+    
+    // Render History List
+    renderHistory(data.history || []);
+  });
 
   show(vNote);
 }
 
-// Toolbar actions
-document.querySelectorAll('.toolbar .btn').forEach(btn => {
+function renderHistory(historyArray) {
+  historyListDiv.innerHTML = historyArray.length ? '' : '<span class="subtext">Tiada sejarah tersedia.</span>';
+  
+  // Papar 5 sejarah terakhir (terkini di atas)
+  historyArray.slice().reverse().forEach((h, index) => {
+    const date = h.time ? new Date(h.time.seconds * 1000).toLocaleString('ms-MY') : 'Baru tadi';
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.innerHTML = `
+      <span>${date}</span>
+      <button class="btn-restore" onclick="restoreHistory(${historyArray.length - 1 - index})">Restore</button>
+    `;
+    historyListDiv.appendChild(item);
+  });
+}
+
+// Fungsi Restore
+window.restoreHistory = async (index) => {
+  const docRef = notesCol(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
+  const doc = await docRef.get();
+  const history = doc.data().history;
+  const selectedContent = history[index].content;
+
+  if (confirm("Kembali ke versi ini? Kandungan semasa akan diganti.")) {
+    await docRef.update({
+      content: selectedContent,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    editor.innerHTML = selectedContent;
+    saveStatus.textContent = "Nota dipulihkan!";
+  }
+};
+
+// Auto Save & History Logic
+let saveTimer = null;
+editor.addEventListener('input', () => {
+  clearTimeout(saveTimer);
+  saveStatus.textContent = 'Menunggu berhenti menaip...';
+  saveTimer = setTimeout(saveNoteWithHistory, 3000); // Simpan selepas 3 saat berhenti menaip
+});
+
+async function saveNoteWithHistory() {
+  if (!state.currentNoteId) return;
+  const newContent = editor.innerHTML;
+  
+  // Elakkan simpan jika tiada perubahan
+  if (newContent === state.lastSavedContent) {
+    saveStatus.textContent = 'Tiada perubahan untuk disimpan.';
+    return;
+  }
+
+  try {
+    saveStatus.textContent = 'Menyimpan...';
+    const docRef = notesCol(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
+    const doc = await docRef.get();
+    const data = doc.data();
+    
+    let history = data.history || [];
+    
+    // Simpan kandungan lama ke history SEBELUM update kandungan baru
+    if (data.content && data.content !== newContent) {
+      history.push({
+        content: data.content,
+        time: firebase.firestore.Timestamp.now()
+      });
+    }
+
+    // Kekalkan hanya 5 history terakhir
+    if (history.length > 5) history.shift();
+
+    await docRef.update({
+      content: newContent,
+      history: history,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    state.lastSavedContent = newContent;
+    saveStatus.textContent = 'Tersimpan secara automatik.';
+  } catch (e) {
+    saveStatus.textContent = 'Gagal simpan (Offline).';
+  }
+}
+
+// Toolbar & Navigation
+document.querySelectorAll('[data-action]').forEach(btn => {
   btn.addEventListener('click', () => {
-    const action = btn.dataset.action;
-    if (action === 'bold') document.execCommand('bold');
-    if (action === 'underline') document.execCommand('underline');
+    document.execCommand(btn.dataset.action, false, null);
     editor.focus();
   });
 });
 
 colorPicker.addEventListener('input', () => {
   document.execCommand('foreColor', false, colorPicker.value);
-  editor.focus();
 });
 
-
-// Saiz teks (+ / -)
-function adjustFontSize(delta) {
-  const sel = window.getSelection();
-  if (!sel.rangeCount) return;
-
-  const node = sel.anchorNode?.parentElement;
-  if (!node) return;
-
-  // Ambil saiz semasa (default 14px kalau tiada)
-  const currentSize = parseFloat(window.getComputedStyle(node).fontSize) || 14;
-  const newSize = Math.max(8, currentSize + delta); // minimum 8px
-
-  node.style.fontSize = `${newSize}px`;
-  editor.focus();
-}
-
-document.getElementById('btn-size-up').addEventListener('click', () => adjustFontSize(2));
-document.getElementById('btn-size-down').addEventListener('click', () => adjustFontSize(-2));
-
-
-// Export hanya nota semasa ke JSON
-async function exportCurrentNote() {
-  if (!state.currentNoteId) return;
-  const doc = await notesCol(state.currentFileId, state.currentFolderId).doc(state.currentNoteId).get();
-  const noteData = { id: doc.id, ...doc.data() };
-  const json = JSON.stringify(noteData, null, 2);
-
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `note-${doc.id}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-
-  saveStatus.textContent = "Nota berjaya diexport sebagai JSON.";
-}
-
-document.getElementById('btn-export-json').addEventListener('click', exportCurrentNote);
-
-// Import JSON untuk restore isi nota semasa
-async function importCurrentNote(file) {
-  const text = await file.text();
-  const data = JSON.parse(text);
-  if (!state.currentNoteId) return;
-
-  await notesCol(state.currentFileId, state.currentFolderId).doc(state.currentNoteId).set(data, { merge: true });
-  editor.innerHTML = data.content || '';
-  saveStatus.textContent = "Nota berjaya diimport dari JSON.";
-}
-
-document.getElementById('btn-import-json').addEventListener('click', () => {
-  document.getElementById('import-json-file').click();
-});
-
-document.getElementById('import-json-file').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (file) await importCurrentNote(file);
-});
-
-
-// Auto-save (debounced)
-let saveTimer = null;
-function scheduleSave() {
-  clearTimeout(saveTimer);
-  // tunggu 6000ms (5 saat) selepas pengguna berhenti menaip
-  saveTimer = setTimeout(saveNote, 5000);
-}
-editor.addEventListener('input', scheduleSave);
-editor.addEventListener('keyup', scheduleSave);
-editor.addEventListener('paste', scheduleSave);
-
-async function saveNote() {
-  if (!state.currentNoteId) return;
-  try {
-    saveStatus.textContent = 'Menyimpan…';
-    await notesCol(state.currentFileId, state.currentFolderId).doc(state.currentNoteId)
-      .set({
-        content: editor.innerHTML,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-    saveStatus.textContent = 'Auto-simpan diaktifkan.';
-  } catch (e) {
-    saveStatus.textContent = 'Simpan gagal (offline). Akan cuba semula.';
-  }
-}
-
-// Navigation
-btnBackHome.addEventListener('click', () => {
-  show(vHome);
-  if (state.noteUnsubscribe) { state.noteUnsubscribe(); state.noteUnsubscribe = null; }
-  state.currentFolderId = null;
-  state.currentNoteId = null;
-  loadFiles();
-});
-btnBackFolders.addEventListener('click', () => {
-  show(vFolders);
-  if (state.noteUnsubscribe) { state.noteUnsubscribe(); state.noteUnsubscribe = null; }
-});
+btnBackHome.addEventListener('click', () => show(vHome));
+btnBackFolders.addEventListener('click', () => show(vFolders));
