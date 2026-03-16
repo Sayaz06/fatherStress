@@ -142,35 +142,55 @@
     document.getElementById('btnGoogle').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
     document.getElementById('btnLogout').onclick = () => auth.signOut();
 
-    // --- CRUD (Susunan ASC - Ikut turutan lama di atas, baru di bawah) ---
+    // --- CRUD (Susunan Abjad & Nombor) ---
     async function loadFiles() {
-      const snap = await db.collection('users').doc(state.uid).collection('files').orderBy('createdAt', 'asc').get();
+      const snap = await db.collection('users').doc(state.uid).collection('files').get();
       const list = document.getElementById('listFiles'); list.innerHTML = '';
-      snap.forEach(doc => {
-        const d = doc.data();
+      
+      let items = [];
+      snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+      
+      // Susunan client-side (Angka & Abjad)
+      items.sort((a, b) => {
+        let titleA = (a.title || "").toLowerCase();
+        let titleB = (b.title || "").toLowerCase();
+        return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
+      items.forEach(d => {
         const div = document.createElement('div');
         div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex justify-between items-center gap-2";
         div.innerHTML = `<button class="font-bold flex-1 text-left text-sm break-text">${d.title || 'Fail'}</button>
           <div class="flex gap-2"><button class="p-2 bg-slate-700 rounded text-xs edit-btn">✏️</button><button class="p-2 bg-red-900/20 text-red-500 rounded text-xs del-btn">🗑️</button></div>`;
-        div.querySelector('button').onclick = () => { state.fileId = doc.id; document.getElementById('labelFile').textContent = d.title; showView('folders'); loadFolders(); };
-        div.querySelector('.edit-btn').onclick = () => editTitle('files', doc.id, d.title, loadFiles);
-        div.querySelector('.del-btn').onclick = () => deleteItem('files', doc.id, loadFiles);
+        div.querySelector('button').onclick = () => { state.fileId = d.id; document.getElementById('labelFile').textContent = d.title; showView('folders'); loadFolders(); };
+        div.querySelector('.edit-btn').onclick = () => editTitle('files', d.id, d.title, loadFiles);
+        div.querySelector('.del-btn').onclick = () => deleteItem('files', d.id, loadFiles);
         list.appendChild(div);
       });
     }
 
     async function loadFolders() {
-      const snap = await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').orderBy('createdAt', 'asc').get();
+      const snap = await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').get();
       const list = document.getElementById('listFolders'); list.innerHTML = '';
-      snap.forEach(doc => {
-        const d = doc.data();
+      
+      let items = [];
+      snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+      
+      // Susunan client-side (Angka & Abjad)
+      items.sort((a, b) => {
+        let titleA = (a.title || "").toLowerCase();
+        let titleB = (b.title || "").toLowerCase();
+        return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
+      items.forEach(d => {
         const div = document.createElement('div');
         div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex justify-between items-center gap-2";
         div.innerHTML = `<button class="font-bold flex-1 text-left text-sm break-text">${d.title || 'Folder'}</button>
           <div class="flex gap-2"><button class="p-2 bg-slate-700 rounded text-xs edit-btn">✏️</button><button class="p-2 bg-red-900/20 text-red-500 rounded text-xs del-btn">🗑️</button></div>`;
-        div.querySelector('button').onclick = () => openNote(doc.id, d.title);
-        div.querySelector('.edit-btn').onclick = () => editTitle(`files/${state.fileId}/folders`, doc.id, d.title, loadFolders);
-        div.querySelector('.del-btn').onclick = () => deleteItem(`files/${state.fileId}/folders`, doc.id, loadFolders);
+        div.querySelector('button').onclick = () => openNote(d.id, d.title);
+        div.querySelector('.edit-btn').onclick = () => editTitle(`files/${state.fileId}/folders`, d.id, d.title, loadFolders);
+        div.querySelector('.del-btn').onclick = () => deleteItem(`files/${state.fileId}/folders`, d.id, loadFolders);
         list.appendChild(div);
       });
     }
