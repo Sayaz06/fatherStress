@@ -18,8 +18,10 @@ const editor = document.getElementById('editor'), historyList = document.getElem
 
 function showPage(viewName) {
     Object.keys(views).forEach(key => views[key].classList.add('hidden'));
-    views[viewName].classList.remove('hidden');
-    document.getElementById('btn-logout').classList.toggle('hidden', viewName === 'login');
+    if(views[viewName]) views[viewName].classList.remove('hidden');
+    
+    const btnLogout = document.getElementById('btn-logout');
+    if(btnLogout) btnLogout.classList.toggle('hidden', viewName === 'login');
 }
 
 auth.onAuthStateChanged(user => {
@@ -27,15 +29,19 @@ auth.onAuthStateChanged(user => {
     if (user) { showPage('home'); loadFiles(); } else { showPage('login'); }
 });
 
-document.getElementById('btn-google').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-document.getElementById('btn-logout').onclick = () => auth.signOut();
+const btnGoogle = document.getElementById('btn-google');
+if(btnGoogle) btnGoogle.onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+
+const btnLogout = document.getElementById('btn-logout');
+if(btnLogout) btnLogout.onclick = () => auth.signOut();
 
 const filesRef = () => db.collection('users').doc(state.user.uid).collection('files');
 const foldersRef = (fId) => filesRef().doc(fId).collection('folders');
 const notesRef = (fId, folId) => foldersRef(fId).doc(folId).collection('notes');
 
-// --- RENDERER DENGAN BUTTON EDIT KHUSUS ---
+// --- RENDERER DENGAN BUTTON EDIT KHUSUS & SUSUNAN ABJAD/ANGKA ---
 function renderCleanItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
+    if(!targetEl) return;
     targetEl.innerHTML = '';
     let items = [];
     snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
@@ -72,7 +78,7 @@ function renderCleanItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
             const newTitle = prompt("Masukkan tajuk baharu:", item.title);
             if (newTitle !== null && newTitle.trim() !== "") {
                 onUpdate(item.id, newTitle.trim());
-                if(state.currentFileId && views.folders.classList.contains('hidden')) {
+                if(state.currentFileId && views.folders && views.folders.classList.contains('hidden')) {
                      loadFiles();
                 } else {
                      loadFolders();
@@ -103,7 +109,8 @@ async function loadFiles() {
 
 function openFile(id, title) {
     state.currentFileId = id;
-    document.getElementById('current-file-name').innerText = title;
+    const currentFileName = document.getElementById('current-file-name');
+    if(currentFileName) currentFileName.innerText = title;
     showPage('folders'); loadFolders();
 }
 
@@ -119,7 +126,8 @@ async function deleteFolder(id) { if(confirm("Padam folder?")) { await foldersRe
 // --- LOGIK HISTORY KEKAL ---
 async function openFolder(id, title) {
     state.currentFolderId = id;
-    document.getElementById('current-folder-name').innerText = title;
+    const currentFolderName = document.getElementById('current-folder-name');
+    if(currentFolderName) currentFolderName.innerText = title;
     showPage('note');
     const nRef = notesRef(state.currentFileId, id);
     const snap = await nRef.limit(1).get();
@@ -133,6 +141,7 @@ async function openFolder(id, title) {
 }
 
 function renderHistorySlots(historyObj) {
+    if(!historyList) return;
     historyList.innerHTML = '';
     const slots = [
         { key: 'lastWeek', label: 'Minggu Lepas' },
@@ -158,56 +167,69 @@ function renderHistorySlots(historyObj) {
 
 // Auto Save & History Manager
 let saveTimer;
-editor.oninput = () => {
-    saveStatus.innerText = "MENAIP...";
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-        if (editor.innerHTML === state.lastSavedContent) return;
-        saveStatus.innerText = "MENYIMPAN...";
-        
-        const docRef = notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
-        const doc = await docRef.get();
-        const data = doc.data();
-        const history = data.history || {};
-        const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
+if(editor) {
+    editor.oninput = () => {
+        if(saveStatus) saveStatus.innerText = "MENAIP...";
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(async () => {
+            if (editor.innerHTML === state.lastSavedContent) return;
+            if(saveStatus) saveStatus.innerText = "MENYIMPAN...";
+            
+            const docRef = notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
+            const doc = await docRef.get();
+            const data = doc.data();
+            const history = data.history || {};
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
 
-        history.realtime = { content: state.lastSavedContent, date: todayStr };
+            history.realtime = { content: state.lastSavedContent, date: todayStr };
 
-        if (!history.yesterday || (history.realtime.date !== todayStr)) {
-            history.yesterday = { content: history.realtime.content, date: history.realtime.date };
-        }
-        const oneWeekAgo = new Date(); oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        const weekStr = oneWeekAgo.toISOString().split('T')[0];
-        if (!history.lastWeek || (history.lastWeek.date < weekStr)) {
-            history.lastWeek = { content: state.lastSavedContent, date: todayStr };
-        }
-        const lastUpdate = data.updatedAt?.toMillis() || Date.now();
-        const diffHours = (Date.now() - lastUpdate) / 3600000;
-        if (!history.oneHour || diffHours >= 1) history.oneHour = { content: state.lastSavedContent };
-        if (!history.fourHours || diffHours >= 4) history.fourHours = { content: state.lastSavedContent };
+            if (!history.yesterday || (history.realtime.date !== todayStr)) {
+                history.yesterday = { content: history.realtime.content, date: history.realtime.date };
+            }
+            const oneWeekAgo = new Date(); oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+            const weekStr = oneWeekAgo.toISOString().split('T')[0];
+            if (!history.lastWeek || (history.lastWeek.date < weekStr)) {
+                history.lastWeek = { content: state.lastSavedContent, date: todayStr };
+            }
+            const lastUpdate = data.updatedAt?.toMillis() || Date.now();
+            const diffHours = (Date.now() - lastUpdate) / 3600000;
+            if (!history.oneHour || diffHours >= 1) history.oneHour = { content: state.lastSavedContent };
+            if (!history.fourHours || diffHours >= 4) history.fourHours = { content: state.lastSavedContent };
 
-        await docRef.update({ content: editor.innerHTML, history: history, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-        state.lastSavedContent = editor.innerHTML;
-        saveStatus.innerText = "AUTO-SIMPAN AKTIF";
-    }, 2000);
-};
+            await docRef.update({ content: editor.innerHTML, history: history, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            state.lastSavedContent = editor.innerHTML;
+            if(saveStatus) saveStatus.innerText = "AUTO-SIMPAN AKTIF";
+        }, 2000);
+    };
+}
 
 // Toolbar & Nav
-document.querySelectorAll('[data-action]').forEach(b => { b.onclick = () => { document.execCommand(b.dataset.action); editor.focus(); }; });
-document.getElementById('color-picker').oninput = (e) => document.execCommand('foreColor', false, e.target.value);
-document.getElementById('btn-size-up').onclick = () => document.execCommand('fontSize', false, '5');
-document.getElementById('btn-size-down').onclick = () => document.execCommand('fontSize', false, '3');
+document.querySelectorAll('[data-action]').forEach(b => { b.onclick = () => { document.execCommand(b.dataset.action); if(editor) editor.focus(); }; });
 
-document.getElementById('btn-back-home').onclick = () => showPage('home');
-document.getElementById('btn-back-folders').onclick = () => showPage('folders');
+const colorPicker = document.getElementById('color-picker');
+if(colorPicker) colorPicker.oninput = (e) => document.execCommand('foreColor', false, e.target.value);
 
-document.getElementById('btn-add-file').onclick = async () => { 
+const btnSizeUp = document.getElementById('btn-size-up');
+if(btnSizeUp) btnSizeUp.onclick = () => document.execCommand('fontSize', false, '5');
+
+const btnSizeDown = document.getElementById('btn-size-down');
+if(btnSizeDown) btnSizeDown.onclick = () => document.execCommand('fontSize', false, '3');
+
+const btnBackHome = document.getElementById('btn-back-home');
+if(btnBackHome) btnBackHome.onclick = () => showPage('home');
+
+const btnBackFolders = document.getElementById('btn-back-folders');
+if(btnBackFolders) btnBackFolders.onclick = () => showPage('folders');
+
+const btnAddFile = document.getElementById('btn-add-file');
+if(btnAddFile) btnAddFile.onclick = async () => { 
     const t = prompt("Nama fail?"); 
     if(t) { await filesRef().add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }
 };
 
-document.getElementById('btn-add-folder').onclick = async () => { 
+const btnAddFolder = document.getElementById('btn-add-folder');
+if(btnAddFolder) btnAddFolder.onclick = async () => { 
     const t = prompt("Nama folder?"); 
     if(t) { await foldersRef(state.currentFileId).add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }
 };
