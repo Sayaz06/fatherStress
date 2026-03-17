@@ -94,6 +94,18 @@
         <button title="Undo" class="w-9 h-9 flex items-center justify-center bg-slate-900 rounded hover:bg-slate-600" onclick="doCmd('undo')">↩</button>
         <button title="Redo" class="w-9 h-9 flex items-center justify-center bg-slate-900 rounded hover:bg-slate-600" onclick="doCmd('redo')">↪</button>
         <div class="h-6 w-[1px] bg-slate-600 mx-1"></div>
+        
+        <select onchange="doCmd('fontSize', this.value)" class="h-9 bg-slate-700 text-white rounded px-2 text-xs font-bold outline-none cursor-pointer border border-slate-600" title="Saiz Teks">
+          <option value="1">Saiz 1</option>
+          <option value="2">Saiz 2</option>
+          <option value="3" selected>Saiz 3 (Normal)</option>
+          <option value="4">Saiz 4</option>
+          <option value="5">Saiz 5</option>
+          <option value="6">Saiz 6</option>
+          <option value="7">Saiz 7</option>
+        </select>
+        <div class="h-6 w-[1px] bg-slate-600 mx-1"></div>
+
         <button class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold" onclick="doCmd('bold')">B</button>
         <button class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded underline font-bold" onclick="doCmd('underline')">U</button>
         <input type="color" oninput="doCmd('foreColor', this.value)" class="w-9 h-9 bg-transparent cursor-pointer" title="Warna Teks"/>
