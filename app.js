@@ -233,3 +233,27 @@ if(btnAddFolder) btnAddFolder.onclick = async () => {
     const t = prompt("Nama folder?"); 
     if(t) { await foldersRef(state.currentFileId).add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }
 };
+
+// --- FUNGSI BARU TAMBAH JADUAL (Dipanggil dari HTML) ---
+window.insertTable = function() {
+    const rows = prompt("Berapa baris (rows) yang anda perlukan?", "3");
+    const cols = prompt("Berapa lajur (columns) yang anda perlukan?", "3");
+    
+    // Semak jika user tekan ok dan masukkan nombor yang sah
+    if (rows && cols && !isNaN(rows) && !isNaN(cols)) {
+        let tableHTML = '<table style="width:100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #475569;"><tbody>';
+        for (let r = 0; r < parseInt(rows); r++) {
+            tableHTML += '<tr>';
+            for (let c = 0; c < parseInt(cols); c++) {
+                // style inline supaya nampak jelas walau tak ada css tambahan
+                tableHTML += `<td style="border: 1px solid #475569; padding: 8px; min-width: 50px;">Sel</td>`;
+            }
+            tableHTML += '</tr>';
+        }
+        tableHTML += '</tbody></table><br/>';
+        
+        const editorRef = document.getElementById('editor');
+        if(editorRef) editorRef.focus();
+        document.execCommand('insertHTML', false, tableHTML);
+    }
+};
