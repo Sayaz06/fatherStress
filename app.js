@@ -210,6 +210,7 @@ document.querySelectorAll('[data-action]').forEach(b => { b.onclick = () => { do
 const colorPicker = document.getElementById('color-picker');
 if(colorPicker) colorPicker.oninput = (e) => document.execCommand('foreColor', false, e.target.value);
 
+// Saya kekalkan butang saiz lama dalam skrip ini supaya tiada error jika elemen tersebut tidak wujud (disebabkan check if(btnSizeUp)).
 const btnSizeUp = document.getElementById('btn-size-up');
 if(btnSizeUp) btnSizeUp.onclick = () => document.execCommand('fontSize', false, '5');
 
