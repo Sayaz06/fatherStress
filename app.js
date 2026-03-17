@@ -204,18 +204,57 @@ if(editor) {
     };
 }
 
+// --- PENYELESAIAN MASALAH HILANG HIGHLIGHT DI TELEFON ---
+let savedSelection = null;
+
+function saveSelection() {
+    const sel = window.getSelection();
+    if (sel.getRangeAt && sel.rangeCount > 0) {
+        savedSelection = sel.getRangeAt(0);
+    }
+}
+
+function restoreSelection() {
+    if (savedSelection) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(savedSelection);
+    }
+}
+
+// Sentiasa perhatikan kedudukan cursor dalam editor
+if(editor) {
+    editor.addEventListener('keyup', saveSelection);
+    editor.addEventListener('mouseup', saveSelection);
+    editor.addEventListener('touchend', saveSelection);
+    editor.addEventListener('focusout', saveSelection);
+}
+
+// Fungsi doCmd untuk pastikan text format tak lari
+window.doCmd = function(c, v=null) {
+    restoreSelection(); 
+    document.execCommand(c, false, v);
+    if(editor) editor.focus();
+    saveSelection(); 
+};
+// --------------------------------------------------------
+
 // Toolbar & Nav
-document.querySelectorAll('[data-action]').forEach(b => { b.onclick = () => { document.execCommand(b.dataset.action); if(editor) editor.focus(); }; });
+document.querySelectorAll('[data-action]').forEach(b => { 
+    b.onclick = () => { 
+        window.doCmd(b.dataset.action); 
+    }; 
+});
 
 const colorPicker = document.getElementById('color-picker');
-if(colorPicker) colorPicker.oninput = (e) => document.execCommand('foreColor', false, e.target.value);
+if(colorPicker) colorPicker.oninput = (e) => window.doCmd('foreColor', e.target.value);
 
-// Saya biarkan kod butang saiz lama ni kat sini as failsafe, supaya kalau awak nak guna button lama balik di masa depan, skrip tak crash.
+// Saya kekalkan juga button lama in case awak nak pakai balik di masa depan
 const btnSizeUp = document.getElementById('btn-size-up');
-if(btnSizeUp) btnSizeUp.onclick = () => document.execCommand('fontSize', false, '5');
+if(btnSizeUp) btnSizeUp.onclick = () => window.doCmd('fontSize', '5');
 
 const btnSizeDown = document.getElementById('btn-size-down');
-if(btnSizeDown) btnSizeDown.onclick = () => document.execCommand('fontSize', false, '3');
+if(btnSizeDown) btnSizeDown.onclick = () => window.doCmd('fontSize', '3');
 
 const btnBackHome = document.getElementById('btn-back-home');
 if(btnBackHome) btnBackHome.onclick = () => showPage('home');
@@ -235,26 +274,27 @@ if(btnAddFolder) btnAddFolder.onclick = async () => {
     if(t) { await foldersRef(state.currentFileId).add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }
 };
 
-// --- FUNGSI BARU TAMBAH JADUAL (Dipanggil dari HTML) ---
+// --- FUNGSI JADUAL YANG DIBAIKI (DENGAN MEMORI) ---
 window.insertTable = function() {
+    saveSelection(); 
+    
     const rows = prompt("Berapa baris (rows) yang anda perlukan?", "3");
     const cols = prompt("Berapa lajur (columns) yang anda perlukan?", "3");
     
-    // Semak jika user tekan ok dan masukkan nombor yang sah
     if (rows && cols && !isNaN(rows) && !isNaN(cols)) {
         let tableHTML = '<table style="width:100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #475569;"><tbody>';
         for (let r = 0; r < parseInt(rows); r++) {
             tableHTML += '<tr>';
             for (let c = 0; c < parseInt(cols); c++) {
-                // style inline supaya nampak jelas walau tak ada css tambahan
                 tableHTML += `<td style="border: 1px solid #475569; padding: 8px; min-width: 50px;">Sel</td>`;
             }
             tableHTML += '</tr>';
         }
         tableHTML += '</tbody></table><br/>';
         
-        const editorRef = document.getElementById('editor');
-        if(editorRef) editorRef.focus();
+        restoreSelection(); 
         document.execCommand('insertHTML', false, tableHTML);
+        if(editor) editor.focus();
+        saveSelection();
     }
 };
