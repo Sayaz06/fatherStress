@@ -177,7 +177,6 @@
       let items = [];
       snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
       
-      // Susunan client-side (Angka & Abjad)
       items.sort((a, b) => {
         let titleA = (a.title || "").toLowerCase();
         let titleB = (b.title || "").toLowerCase();
@@ -203,7 +202,6 @@
       let items = [];
       snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
       
-      // Susunan client-side (Angka & Abjad)
       items.sort((a, b) => {
         let titleA = (a.title || "").toLowerCase();
         let titleB = (b.title || "").toLowerCase();
@@ -237,11 +235,12 @@
     }
 
     // --- TURBO AUTO-SAVE (2.5 SAAT) ---
-    document.getElementById('editor').oninput = () => {
+    const editorEl = document.getElementById('editor');
+    editorEl.oninput = () => {
       clearTimeout(state.saveTimer);
       state.saveTimer = setTimeout(async () => {
         if(!state.noteId) return;
-        const content = document.getElementById('editor').innerHTML;
+        const content = editorEl.innerHTML;
         const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
         try {
           await noteDoc.update({ content, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
@@ -251,9 +250,42 @@
       }, 2500);
     };
 
+    // --- PENYELESAIAN MASALAH HILANG HIGHLIGHT DI TELEFON ---
+    let savedSelection = null;
+    
+    function saveSelection() {
+      const sel = window.getSelection();
+      if (sel.getRangeAt && sel.rangeCount > 0) {
+        savedSelection = sel.getRangeAt(0);
+      }
+    }
+
+    function restoreSelection() {
+      if (savedSelection) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(savedSelection);
+      }
+    }
+
+    // Sentiasa simpan highlight terkini bila kita sentuh/menaip dalam editor
+    editorEl.addEventListener('keyup', saveSelection);
+    editorEl.addEventListener('mouseup', saveSelection);
+    editorEl.addEventListener('touchend', saveSelection);
+    editorEl.addEventListener('focusout', saveSelection);
+
+    // Fungsi doCmd yang dikemaskini untuk cover phone
+    function doCmd(c, v=null) {
+      restoreSelection(); // Tampal balik highlight yang tersimpan
+      document.execCommand(c, false, v);
+      editorEl.focus();
+      saveSelection(); // Simpan balik state baru lepas tukar
+    }
+    // --------------------------------------------------------
+
     // --- MANUAL SEJARAH (OVERWRITE - HANYA SIMPAN SATU TERAKHIR) ---
     document.getElementById('btnManualSave').onclick = async () => {
-      const content = document.getElementById('editor').innerHTML;
+      const content = editorEl.innerHTML;
       if(!content || !state.noteId) return alert("Nota kosong.");
       
       const loader = document.getElementById('saveLoader');
@@ -265,13 +297,11 @@
       try {
         const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
         
-        // Padam versi sejarah lama
         const oldHistory = await noteDoc.collection('history_manual').get();
         const batch = db.batch();
         oldHistory.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
 
-        // Simpan yang baru
         await noteDoc.collection('history_manual').add({ content, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
         
         bar.style.width = '100%';
@@ -304,40 +334,18 @@
         const btn = document.createElement('button');
         btn.className = `w-full p-4 rounded-xl border border-indigo-900 bg-indigo-900/10 text-left`;
         btn.innerHTML = `<span class="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Snapshot Terakhir</span><br><span class="text-xs">${d.timestamp?.toDate().toLocaleString() || 'Baru'}</span>`;
-        btn.onclick = () => { if(confirm(`Pulihkan versi ini?`)) { document.getElementById('editor').innerHTML = d.content; modal.classList.add('hidden'); document.getElementById('editor').dispatchEvent(new Event('input')); }};
+        btn.onclick = () => { if(confirm(`Pulihkan versi ini?`)) { editorEl.innerHTML = d.content; modal.classList.add('hidden'); editorEl.dispatchEvent(new Event('input')); }};
         list.appendChild(btn);
       });
-    }
-
-    // --- FUNGSI BARU TAMBAH JADUAL ---
-    function insertTable() {
-      const rows = prompt("Berapa baris (rows) yang anda perlukan?", "3");
-      const cols = prompt("Berapa lajur (columns) yang anda perlukan?", "3");
-      
-      // Semak jika user tekan ok dan masukkan nombor yang sah
-      if (rows && cols && !isNaN(rows) && !isNaN(cols)) {
-        let tableHTML = '<table style="width:100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #475569;"><tbody>';
-        for (let r = 0; r < parseInt(rows); r++) {
-          tableHTML += '<tr>';
-          for (let c = 0; c < parseInt(cols); c++) {
-            // style inline supaya nampak jelas walau tak ada css
-            tableHTML += `<td style="border: 1px solid #475569; padding: 8px; min-width: 50px;">Sel</td>`;
-          }
-          tableHTML += '</tr>';
-        }
-        tableHTML += '</tbody></table><br/>';
-        
-        document.getElementById('editor').focus();
-        document.execCommand('insertHTML', false, tableHTML);
-      }
     }
 
     // --- TOOLS ---
     document.getElementById('btnHistory').onclick = () => toggleHistory(true);
     document.getElementById('btnBackToFolders').onclick = () => showView('folders');
-    function doCmd(c,v=null){ document.execCommand(c,false,v); document.getElementById('editor').focus(); }
+    
     async function editTitle(p,id,o,cb){ const n = prompt('Tukar Nama:',o); if(n && n!==o){ await db.collection('users').doc(state.uid).collection(p).doc(id).update({title:n}); cb(); } }
     async function deleteItem(p,id,cb){ if(confirm('Padam item ini secara kekal?')){ await db.collection('users').doc(state.uid).collection(p).doc(id).delete(); cb(); } }
+    
     document.getElementById('btnAddFile').onclick = async () => { const t = prompt('Nama Fail Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }};
     document.getElementById('btnAddFolder').onclick = async () => { const t = prompt('Nama Folder Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }};
   </script>
