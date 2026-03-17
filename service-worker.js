@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wanlaw-shell-v27;
+const CACHE_NAME = 'wanlaw-shell-v28;
 const ASSETS = [
   './',
   './index.html',
