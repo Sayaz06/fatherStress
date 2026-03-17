@@ -28,6 +28,19 @@
       transition: width 0.3s ease;
     }
     @keyframes flow { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Gaya Tambahan Untuk Jadual (Table) Dalam Editor */
+    .editor table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+    .editor th, .editor td {
+      border: 1px solid #475569;
+      padding: 8px;
+      min-width: 50px;
+    }
   </style>
 </head>
 <body class="min-h-screen w-full">
@@ -77,13 +90,15 @@
         <div id="progressBar" class="progress-flow"></div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-1 p-2 bg-slate-800 rounded-t-xl border-x border-t border-slate-700">
+      <div class="flex flex-wrap items-center gap-1 p-2 bg-slate-800 rounded-t-xl border border-slate-700 sticky top-[60px] z-40 shadow-xl">
         <button title="Undo" class="w-9 h-9 flex items-center justify-center bg-slate-900 rounded hover:bg-slate-600" onclick="doCmd('undo')">↩</button>
         <button title="Redo" class="w-9 h-9 flex items-center justify-center bg-slate-900 rounded hover:bg-slate-600" onclick="doCmd('redo')">↪</button>
         <div class="h-6 w-[1px] bg-slate-600 mx-1"></div>
         <button class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold" onclick="doCmd('bold')">B</button>
         <button class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded underline font-bold" onclick="doCmd('underline')">U</button>
-        <input type="color" oninput="doCmd('foreColor', this.value)" class="w-9 h-9 bg-transparent cursor-pointer" />
+        <input type="color" oninput="doCmd('foreColor', this.value)" class="w-9 h-9 bg-transparent cursor-pointer" title="Warna Teks"/>
+        
+        <button title="Tambah Jadual" class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold text-lg" onclick="insertTable()">▦</button>
         
         <button id="btnManualSave" class="ml-auto px-2 h-9 bg-indigo-900 text-indigo-100 text-[9px] rounded border border-indigo-500 font-bold">SIMPAN SEJARAH</button>
         <button id="btnHistory" class="px-2 h-9 bg-amber-600/20 text-amber-400 text-[9px] rounded border border-amber-900/50 font-bold ml-1">🕒 LIHAT</button>
@@ -280,6 +295,29 @@
         btn.onclick = () => { if(confirm(`Pulihkan versi ini?`)) { document.getElementById('editor').innerHTML = d.content; modal.classList.add('hidden'); document.getElementById('editor').dispatchEvent(new Event('input')); }};
         list.appendChild(btn);
       });
+    }
+
+    // --- FUNGSI BARU TAMBAH JADUAL ---
+    function insertTable() {
+      const rows = prompt("Berapa baris (rows) yang anda perlukan?", "3");
+      const cols = prompt("Berapa lajur (columns) yang anda perlukan?", "3");
+      
+      // Semak jika user tekan ok dan masukkan nombor yang sah
+      if (rows && cols && !isNaN(rows) && !isNaN(cols)) {
+        let tableHTML = '<table style="width:100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #475569;"><tbody>';
+        for (let r = 0; r < parseInt(rows); r++) {
+          tableHTML += '<tr>';
+          for (let c = 0; c < parseInt(cols); c++) {
+            // style inline supaya nampak jelas walau tak ada css
+            tableHTML += `<td style="border: 1px solid #475569; padding: 8px; min-width: 50px;">Sel</td>`;
+          }
+          tableHTML += '</tr>';
+        }
+        tableHTML += '</tbody></table><br/>';
+        
+        document.getElementById('editor').focus();
+        document.execCommand('insertHTML', false, tableHTML);
+      }
     }
 
     // --- TOOLS ---
