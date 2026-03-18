@@ -379,6 +379,11 @@
     
     document.getElementById('btnAddFile').onclick = async () => { const t = prompt('Nama Fail Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }};
     document.getElementById('btnAddFolder').onclick = async () => { const t = prompt('Nama Folder Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }};
+
+<script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js");
+    }
   </script>
 </body>
 </html>
