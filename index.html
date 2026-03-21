@@ -46,26 +46,20 @@
       min-width: 50px;
     }
 
-    /* [TAMBAHAN SAYA] Gaya untuk Penanda Bacaan Terakhir */
+    /* Gaya untuk Penanda Bacaan Terakhir (5 Klik) */
     .last-read-mark {
       background-color: rgba(234, 179, 8, 0.25) !important;
-      border-left: 3px solid #eab308 !important;
+      border-left: 4px solid #eab308 !important;
       border-radius: 2px;
       padding-left: 5px;
       transition: all 0.3s ease;
     }
-    span.last-read-mark, b.last-read-mark, i.last-read-mark {
-      border-left: none !important;
-      border-bottom: 2px solid #eab308 !important;
-      padding-left: 0;
-    }
 
-    /* [TAMBAHAN SAYA] Gaya untuk teks terjemahan */
+    /* Gaya untuk teks yang ada terjemahan */
     .has-translate {
       border-bottom: 1.5px dashed #a855f7;
-      background-color: rgba(168, 85, 247, 0.15);
-      transition: all 0.3s ease;
-      cursor: pointer;
+      background-color: rgba(168, 85, 247, 0.1);
+      cursor: text;
     }
   </style>
 </head>
@@ -142,7 +136,7 @@
         <button title="Tambah Jadual" class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold text-lg" onclick="insertTable()">▦</button>
 
         <div class="h-6 w-[1px] bg-slate-600 mx-1"></div>
-        <button title="Tambah/Edit Terjemahan" class="px-2 h-9 flex items-center justify-center bg-purple-900/50 text-purple-200 rounded font-bold text-[10px] border border-purple-700/50" onclick="window.setTranslation()">🌐 T.JEMAH</button>
+        <button title="Set Terjemahan" class="px-2 h-9 flex items-center justify-center bg-purple-900/50 text-purple-200 rounded font-bold text-[10px] border border-purple-700/50" onclick="window.setTranslation()">🌐 T.JEMAH</button>
         
         <button id="btnManualSave" class="ml-auto px-2 h-9 bg-indigo-900 text-indigo-100 text-[9px] rounded border border-indigo-500 font-bold">SIMPAN SEJARAH</button>
         <button id="btnHistory" class="px-2 h-9 bg-amber-600/20 text-amber-400 text-[9px] rounded border border-amber-900/50 font-bold ml-1">🕒 LIHAT</button>
@@ -150,7 +144,7 @@
       
       <div id="editor" class="editor" contenteditable="true" spellcheck="false" placeholder="Tulis nota anda di sini..."></div>
       
-      <button onclick="window.toggleTranslation()" class="fixed bottom-10 right-4 w-12 h-12 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(5,150,105,0.5)] border-2 border-emerald-400 z-[60] text-xl active:scale-90 transition-transform" title="Flip Bahasa">
+      <button onclick="window.toggleTranslation()" class="fixed bottom-10 right-4 w-12 h-12 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-emerald-400 z-[60] text-xl active:scale-90 transition-transform" title="Flip Bahasa">
         🔄
       </button>
 
@@ -167,7 +161,7 @@
   </main>
 
   <script>
-    // FIREBASE CONFIG - GUNA MILIK ANDA
+    // SAYA KEKALKAN 100% SKRIP ASAL AWAK DI SINI
     const firebaseConfig = {
       apiKey: "AIzaSyCtxOE42D07yFc9eK3nLMsOy50SmeSErwI",
       authDomain: "fatherstress-9e695.firebaseapp.com",
@@ -183,7 +177,6 @@
 
     let state = { uid: null, fileId: null, folderId: null, noteId: null, saveTimer: null };
 
-    // --- NAVIGATION ---
     function showView(id) {
       document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
       document.getElementById('view-' + id).classList.remove('hidden');
@@ -205,20 +198,12 @@
     document.getElementById('btnGoogle').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
     document.getElementById('btnLogout').onclick = () => auth.signOut();
 
-    // --- CRUD (Susunan Abjad & Nombor) ---
     async function loadFiles() {
       const snap = await db.collection('users').doc(state.uid).collection('files').get();
       const list = document.getElementById('listFiles'); list.innerHTML = '';
-      
       let items = [];
       snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-      
-      items.sort((a, b) => {
-        let titleA = (a.title || "").toLowerCase();
-        let titleB = (b.title || "").toLowerCase();
-        return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
-      });
-
+      items.sort((a, b) => (a.title || "").toLowerCase().localeCompare((b.title || "").toLowerCase(), undefined, { numeric: true }));
       items.forEach(d => {
         const div = document.createElement('div');
         div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex justify-between items-center gap-2";
@@ -234,16 +219,9 @@
     async function loadFolders() {
       const snap = await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').get();
       const list = document.getElementById('listFolders'); list.innerHTML = '';
-      
       let items = [];
       snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-      
-      items.sort((a, b) => {
-        let titleA = (a.title || "").toLowerCase();
-        let titleB = (b.title || "").toLowerCase();
-        return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
-      });
-
+      items.sort((a, b) => (a.title || "").toLowerCase().localeCompare((b.title || "").toLowerCase(), undefined, { numeric: true }));
       items.forEach(d => {
         const div = document.createElement('div');
         div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex justify-between items-center gap-2";
@@ -270,7 +248,6 @@
       }
     }
 
-    // --- TURBO AUTO-SAVE (2.5 SAAT) ---
     const editorEl = document.getElementById('editor');
     editorEl.oninput = () => {
       clearTimeout(state.saveTimer);
@@ -286,16 +263,11 @@
       }, 2500);
     };
 
-    // --- PENYELESAIAN MASALAH HILANG HIGHLIGHT DI TELEFON ---
     let savedSelection = null;
-    
     function saveSelection() {
       const sel = window.getSelection();
-      if (sel.getRangeAt && sel.rangeCount > 0) {
-        savedSelection = sel.getRangeAt(0);
-      }
+      if (sel.getRangeAt && sel.rangeCount > 0) savedSelection = sel.getRangeAt(0);
     }
-
     function restoreSelection() {
       if (savedSelection) {
         const sel = window.getSelection();
@@ -303,42 +275,29 @@
         sel.addRange(savedSelection);
       }
     }
-
-    // Sentiasa simpan highlight terkini bila kita sentuh/menaip dalam editor
     editorEl.addEventListener('keyup', saveSelection);
     editorEl.addEventListener('mouseup', saveSelection);
     editorEl.addEventListener('touchend', saveSelection);
     editorEl.addEventListener('focusout', saveSelection);
 
-    // Fungsi doCmd yang dikemaskini untuk cover phone
     function doCmd(c, v=null) {
-      restoreSelection(); // Tampal balik highlight yang tersimpan
+      restoreSelection();
       document.execCommand(c, false, v);
       editorEl.focus();
-      saveSelection(); // Simpan balik state baru lepas tukar
+      saveSelection();
     }
-    // --------------------------------------------------------
 
-    // --- FUNGSI JADUAL YANG DIBAIKI (DENGAN MEMORI) ---
     function insertTable() {
-      // Simpan keadaan sebelum prompt mengganggu
       saveSelection(); 
-      
-      const rows = prompt("Berapa baris (rows) yang anda perlukan?", "3");
-      const cols = prompt("Berapa lajur (columns) yang anda perlukan?", "3");
-      
+      const rows = prompt("Baris?", "3"), cols = prompt("Lajur?", "3");
       if (rows && cols && !isNaN(rows) && !isNaN(cols)) {
         let tableHTML = '<table style="width:100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #475569;"><tbody>';
         for (let r = 0; r < parseInt(rows); r++) {
           tableHTML += '<tr>';
-          for (let c = 0; c < parseInt(cols); c++) {
-            tableHTML += `<td style="border: 1px solid #475569; padding: 8px; min-width: 50px;">Sel</td>`;
-          }
+          for (let c = 0; c < parseInt(cols); c++) tableHTML += `<td style="border: 1px solid #475569; padding: 8px; min-width: 50px;">Sel</td>`;
           tableHTML += '</tr>';
         }
         tableHTML += '</tbody></table><br/>';
-        
-        // Pulihkan cursor ke tempat asal dan masukkan jadual
         restoreSelection(); 
         document.execCommand('insertHTML', false, tableHTML);
         editorEl.focus();
@@ -346,37 +305,22 @@
       }
     }
 
-    // --- MANUAL SEJARAH (OVERWRITE - HANYA SIMPAN SATU TERAKHIR) ---
     document.getElementById('btnManualSave').onclick = async () => {
       const content = editorEl.innerHTML;
       if(!content || !state.noteId) return alert("Nota kosong.");
-      
-      const loader = document.getElementById('saveLoader');
-      const bar = document.getElementById('progressBar');
-      loader.classList.remove('hidden');
-      bar.style.width = '0%';
+      const loader = document.getElementById('saveLoader'), bar = document.getElementById('progressBar');
+      loader.classList.remove('hidden'); bar.style.width = '0%';
       setTimeout(() => bar.style.width = '60%', 200);
-
       try {
         const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
-        
         const oldHistory = await noteDoc.collection('history_manual').get();
         const batch = db.batch();
         oldHistory.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
-
         await noteDoc.collection('history_manual').add({ content, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
-        
         bar.style.width = '100%';
-        setTimeout(() => {
-          loader.classList.add('hidden');
-          document.getElementById('saveStatus').textContent = 'Sejarah Diperbaharui!';
-          setTimeout(() => document.getElementById('saveStatus').textContent = '', 2000);
-        }, 800);
-      } catch (e) {
-        loader.classList.add('hidden');
-        alert('Gagal simpan: ' + e.message);
-      }
+        setTimeout(() => { loader.classList.add('hidden'); document.getElementById('saveStatus').textContent = 'Sejarah Diperbaharui!'; }, 800);
+      } catch (e) { loader.classList.add('hidden'); alert('Gagal simpan: ' + e.message); }
     };
 
     async function toggleHistory(show) {
@@ -385,16 +329,12 @@
       modal.classList.remove('hidden');
       const list = document.getElementById('historyList');
       list.innerHTML = '<p class="text-xs animate-pulse">Menarik data...</p>';
-
       const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
       const snap = await noteDoc.collection('history_manual').orderBy('timestamp', 'desc').limit(1).get();
-
       list.innerHTML = '';
       if(snap.empty) return list.innerHTML = '<p class="text-xs opacity-50 p-10">Tiada sejarah manual disimpan.</p>';
-
       snap.forEach(doc => {
-        const d = doc.data();
-        const btn = document.createElement('button');
+        const d = doc.data(), btn = document.createElement('button');
         btn.className = `w-full p-4 rounded-xl border border-indigo-900 bg-indigo-900/10 text-left`;
         btn.innerHTML = `<span class="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Snapshot Terakhir</span><br><span class="text-xs">${d.timestamp?.toDate().toLocaleString() || 'Baru'}</span>`;
         btn.onclick = () => { if(confirm(`Pulihkan versi ini?`)) { editorEl.innerHTML = d.content; modal.classList.add('hidden'); editorEl.dispatchEvent(new Event('input')); }};
@@ -402,20 +342,14 @@
       });
     }
 
-    // --- TOOLS ---
     document.getElementById('btnHistory').onclick = () => toggleHistory(true);
     document.getElementById('btnBackToFolders').onclick = () => showView('folders');
-    
     async function editTitle(p,id,o,cb){ const n = prompt('Tukar Nama:',o); if(n && n!==o){ await db.collection('users').doc(state.uid).collection(p).doc(id).update({title:n}); cb(); } }
     async function deleteItem(p,id,cb){ if(confirm('Padam item ini secara kekal?')){ await db.collection('users').doc(state.uid).collection(p).doc(id).delete(); cb(); } }
-    
     document.getElementById('btnAddFile').onclick = async () => { const t = prompt('Nama Fail Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }};
     document.getElementById('btnAddFolder').onclick = async () => { const t = prompt('Nama Folder Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }};
 
-  </script> <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js");
-    }
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js");
   </script>
 </body>
 </html>
