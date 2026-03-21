@@ -61,7 +61,7 @@ function renderCleanItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
         titleArea.className = "title-textarea";
         titleArea.value = item.title || '';
         titleArea.rows = 1;
-        titleArea.readOnly = true;
+        titleArea.readOnly = true; // Kunci supaya tak boleh edit terus
 
         const autoHeight = () => { 
             titleArea.style.height = 'auto'; 
@@ -73,6 +73,7 @@ function renderCleanItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
         
         const btnOpen = createActionBtn("📝 BUKA", "bg-slate-800", () => onOpen(item.id, item.title));
         
+        // BUTTON EDIT TAJUK KHUSUS
         const btnEditTitle = createActionBtn("✏️ TAJUK", "bg-slate-800 text-blue-400", () => {
             const newTitle = prompt("Masukkan tajuk baharu:", item.title);
             if (newTitle !== null && newTitle.trim() !== "") {
@@ -136,14 +137,17 @@ async function openFolder(id, title) {
         const data = doc.data();
         if (data && editor.innerHTML !== data.content) { editor.innerHTML = data.content || ''; state.lastSavedContent = data.content; }
         renderHistorySlots(data.history || {});
-        
-        // [TAMBAHAN] Auto-scroll ke penanda kuning lepas nota dimuatkan
+
+        // --- [TAMBAHAN SAYA] Auto-scroll ke penanda kuning bila nota dibuka ---
         setTimeout(() => {
             if(editor) {
                 const mark = editor.querySelector('.last-read-mark');
-                if (mark) mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (mark) {
+                    mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             }
         }, 500);
+        // ----------------------------------------------------------------------
     });
 }
 
@@ -233,54 +237,61 @@ function restoreSelection() {
 if(editor) {
     editor.addEventListener('keyup', saveSelection);
     editor.addEventListener('mouseup', saveSelection);
+    editor.addEventListener('touchend', saveSelection);
     editor.addEventListener('focusout', saveSelection);
 
-    // --- [TAMBAHAN] LOGIK KETIK 2 KALI (DOUBLE TAP) & PENANDA ---
+    // --- [TAMBAHAN SAYA] LOGIK KETIK 2 KALI (DOUBLE TAP) & PENANDA HIGHLIGHT ---
     let lastTapTime = 0;
 
     function applyReadMark(e) {
-      const oldMarks = editor.querySelectorAll('.last-read-mark');
-      oldMarks.forEach(el => el.classList.remove('last-read-mark'));
+        // Padam warna kuning yang lama
+        const oldMarks = editor.querySelectorAll('.last-read-mark');
+        oldMarks.forEach(el => el.classList.remove('last-read-mark'));
 
-      let target = e.target;
+        let target = e.target;
 
-      if (target === editor) {
-        const sel = window.getSelection();
-        if (sel.rangeCount > 0) {
-          let node = sel.getRangeAt(0).startContainer;
-          target = node.nodeType === 3 ? node.parentNode : node;
+        // Dapatkan node spesifik jika klik terkena background editor
+        if (target === editor) {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                let node = sel.getRangeAt(0).startContainer;
+                target = node.nodeType === 3 ? node.parentNode : node;
+            }
         }
-      }
 
-      if (target && editor.contains(target) && target !== editor) {
-        let markTarget = target;
-        while (markTarget && markTarget.parentNode !== editor && !['DIV', 'P', 'TD', 'LI', 'H1', 'H2', 'H3'].includes(markTarget.tagName)) {
-            if(markTarget.tagName === 'TABLE' || markTarget.tagName === 'TBODY') break; 
-            markTarget = markTarget.parentNode;
+        if (target && editor.contains(target) && target !== editor) {
+            let markTarget = target;
+            // Cari elemen perenggan atau baris yang sesuai
+            while (markTarget && markTarget.parentNode !== editor && !['DIV', 'P', 'TD', 'LI', 'H1', 'H2', 'H3'].includes(markTarget.tagName)) {
+                if(markTarget.tagName === 'TABLE' || markTarget.tagName === 'TBODY') break; 
+                markTarget = markTarget.parentNode;
+            }
+            
+            if (markTarget && markTarget !== editor) {
+                markTarget.classList.add('last-read-mark');
+            } else {
+                target.classList.add('last-read-mark');
+            }
+            
+            // Trigger input supaya auto-save simpan perubahan warna ini ke Firebase
+            editor.dispatchEvent(new Event('input'));
         }
-        
-        if (markTarget && markTarget !== editor) {
-            markTarget.classList.add('last-read-mark');
-        } else {
-            target.classList.add('last-read-mark');
-        }
-        editor.dispatchEvent(new Event('input'));
-      }
     }
 
     editor.addEventListener('dblclick', function(e) {
-      applyReadMark(e);
+        applyReadMark(e);
     });
 
     editor.addEventListener('touchend', function(e) {
-      const currentTime = new Date().getTime();
-      const tapLength = currentTime - lastTapTime;
-      if (tapLength < 400 && tapLength > 0) {
-        applyReadMark(e);
-      }
-      lastTapTime = currentTime;
-      saveSelection(); // Kekalkan fungsi lama untuk selection
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTapTime;
+        // Jika ketik 2 kali dalam sela masa 400ms
+        if (tapLength < 400 && tapLength > 0) {
+            applyReadMark(e);
+        }
+        lastTapTime = currentTime;
     });
+    // ---------------------------------------------------------------------------
 }
 
 // Fungsi doCmd untuk pastikan text format tak lari
@@ -302,6 +313,7 @@ document.querySelectorAll('[data-action]').forEach(b => {
 const colorPicker = document.getElementById('color-picker');
 if(colorPicker) colorPicker.oninput = (e) => window.doCmd('foreColor', e.target.value);
 
+// Saya kekalkan juga button lama in case awak nak pakai balik di masa depan
 const btnSizeUp = document.getElementById('btn-size-up');
 if(btnSizeUp) btnSizeUp.onclick = () => window.doCmd('fontSize', '5');
 
