@@ -45,6 +45,20 @@
       padding: 8px;
       min-width: 50px;
     }
+
+    /* [TAMBAHAN SAYA] Gaya untuk Penanda Bacaan Terakhir */
+    .last-read-mark {
+      background-color: rgba(234, 179, 8, 0.25) !important;
+      border-left: 3px solid #eab308 !important;
+      border-radius: 2px;
+      padding-left: 5px;
+      transition: all 0.3s ease;
+    }
+    span.last-read-mark, b.last-read-mark, i.last-read-mark {
+      border-left: none !important;
+      border-bottom: 2px solid #eab308 !important;
+      padding-left: 0;
+    }
   </style>
 </head>
 <body class="min-h-screen w-full">
@@ -236,6 +250,14 @@
       } else {
         state.noteId = snap.docs[0].id; editor.innerHTML = snap.docs[0].data().content || '';
       }
+
+      // [TAMBAHAN SAYA] AUTO-SCROLL KE AYAT TERAKHIR APABILA NOTA DIBUKA
+      setTimeout(() => {
+        const mark = editor.querySelector('.last-read-mark');
+        if (mark) {
+            mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500);
     }
 
     // --- TURBO AUTO-SAVE (2.5 SAAT) ---
@@ -277,6 +299,54 @@
     editorEl.addEventListener('mouseup', saveSelection);
     editorEl.addEventListener('touchend', saveSelection);
     editorEl.addEventListener('focusout', saveSelection);
+
+    // --- [TAMBAHAN SAYA] FUNGSI DOUBLE TAP & HIGHLIGHT PENANDA BACAAN ---
+    let lastTapTime = 0;
+
+    function applyReadMark(e) {
+      const oldMarks = editorEl.querySelectorAll('.last-read-mark');
+      oldMarks.forEach(el => el.classList.remove('last-read-mark'));
+
+      let target = e.target;
+
+      if (target === editorEl) {
+        const sel = window.getSelection();
+        if (sel.rangeCount > 0) {
+          let node = sel.getRangeAt(0).startContainer;
+          target = node.nodeType === 3 ? node.parentNode : node;
+        }
+      }
+
+      if (target && editorEl.contains(target) && target !== editorEl) {
+        let markTarget = target;
+        while (markTarget && markTarget.parentNode !== editorEl && !['DIV', 'P', 'TD', 'LI', 'H1', 'H2', 'H3'].includes(markTarget.tagName)) {
+            if(markTarget.tagName === 'TABLE' || markTarget.tagName === 'TBODY') break; 
+            markTarget = markTarget.parentNode;
+        }
+        
+        if (markTarget && markTarget !== editorEl) {
+            markTarget.classList.add('last-read-mark');
+        } else {
+            target.classList.add('last-read-mark');
+        }
+        
+        editorEl.dispatchEvent(new Event('input'));
+      }
+    }
+
+    editorEl.addEventListener('dblclick', function(e) {
+      applyReadMark(e);
+    });
+
+    editorEl.addEventListener('touchend', function(e) {
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTapTime;
+      if (tapLength < 400 && tapLength > 0) {
+        applyReadMark(e);
+      }
+      lastTapTime = currentTime;
+    });
+    // ------------------------------------------------------------------
 
     // Fungsi doCmd yang dikemaskini untuk cover phone
     function doCmd(c, v=null) {
