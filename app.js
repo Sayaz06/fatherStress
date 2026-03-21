@@ -39,14 +39,13 @@ const filesRef = () => db.collection('users').doc(state.user.uid).collection('fi
 const foldersRef = (fId) => filesRef().doc(fId).collection('folders');
 const notesRef = (fId, folId) => foldersRef(fId).doc(folId).collection('notes');
 
-// --- RENDERER DENGAN BUTTON EDIT KHUSUS & SUSUNAN ABJAD/ANGKA ---
+// --- RENDERER ORIGINAL ---
 function renderCleanItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
     if(!targetEl) return;
     targetEl.innerHTML = '';
     let items = [];
     snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
 
-    // SUSUNAN TEGAR: Angka & Abjad A-Z
     items.sort((a, b) => {
         let titleA = (a.title || "").toLowerCase();
         let titleB = (b.title || "").toLowerCase();
@@ -61,7 +60,7 @@ function renderCleanItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
         titleArea.className = "title-textarea";
         titleArea.value = item.title || '';
         titleArea.rows = 1;
-        titleArea.readOnly = true; // Kunci supaya tak boleh edit terus
+        titleArea.readOnly = true;
 
         const autoHeight = () => { 
             titleArea.style.height = 'auto'; 
@@ -73,7 +72,6 @@ function renderCleanItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
         
         const btnOpen = createActionBtn("📝 BUKA", "bg-slate-800", () => onOpen(item.id, item.title));
         
-        // BUTTON EDIT TAJUK KHUSUS
         const btnEditTitle = createActionBtn("✏️ TAJUK", "bg-slate-800 text-blue-400", () => {
             const newTitle = prompt("Masukkan tajuk baharu:", item.title);
             if (newTitle !== null && newTitle.trim() !== "") {
@@ -101,7 +99,7 @@ function createActionBtn(text, cls, fn) {
     b.innerHTML = text; b.onclick = fn; return b;
 }
 
-// --- LOGIC FUNCTIONS ---
+// --- LOGIC FUNCTIONS ORIGINAL ---
 async function loadFiles() {
     const snap = await filesRef().get(); 
     renderCleanItems(snap, document.getElementById('files-list'), openFile, (id, t) => filesRef().doc(id).update({title: t}), deleteFile);
@@ -123,7 +121,6 @@ async function loadFolders() {
 
 async function deleteFolder(id) { if(confirm("Padam folder?")) { await foldersRef(state.currentFileId).doc(id).delete(); loadFolders(); } }
 
-// --- LOGIK HISTORY KEKAL ---
 async function openFolder(id, title) {
     state.currentFolderId = id;
     const currentFolderName = document.getElementById('current-folder-name');
@@ -138,16 +135,13 @@ async function openFolder(id, title) {
         if (data && editor.innerHTML !== data.content) { editor.innerHTML = data.content || ''; state.lastSavedContent = data.content; }
         renderHistorySlots(data.history || {});
 
-        // --- [TAMBAHAN SAYA] Auto-scroll ke penanda kuning bila nota dibuka ---
+        // --- [TAMBAHAN] AUTO-SCROLL KE PENANDA KUNING ---
         setTimeout(() => {
             if(editor) {
                 const mark = editor.querySelector('.last-read-mark');
-                if (mark) {
-                    mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
+                if (mark) mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-        }, 500);
-        // ----------------------------------------------------------------------
+        }, 600);
     });
 }
 
@@ -176,7 +170,6 @@ function renderHistorySlots(historyObj) {
     });
 }
 
-// Auto Save & History Manager
 let saveTimer;
 if(editor) {
     editor.oninput = () => {
@@ -215,16 +208,11 @@ if(editor) {
     };
 }
 
-// --- PENYELESAIAN MASALAH HILANG HIGHLIGHT DI TELEFON ---
 let savedSelection = null;
-
 function saveSelection() {
     const sel = window.getSelection();
-    if (sel.getRangeAt && sel.rangeCount > 0) {
-        savedSelection = sel.getRangeAt(0);
-    }
+    if (sel.getRangeAt && sel.rangeCount > 0) { savedSelection = sel.getRangeAt(0); }
 }
-
 function restoreSelection() {
     if (savedSelection) {
         const sel = window.getSelection();
@@ -233,129 +221,74 @@ function restoreSelection() {
     }
 }
 
-// Sentiasa perhatikan kedudukan cursor dalam editor
 if(editor) {
     editor.addEventListener('keyup', saveSelection);
     editor.addEventListener('mouseup', saveSelection);
     editor.addEventListener('touchend', saveSelection);
     editor.addEventListener('focusout', saveSelection);
 
-    // --- [TAMBAHAN SAYA] LOGIK KETIK 2 KALI (DOUBLE TAP) & PENANDA HIGHLIGHT ---
-    let lastTapTime = 0;
+    // --- [TAMBAHAN] 5 KALI KLIK UNTUK PENANDA BACAAN ---
+    let clickCount = 0;
+    let clickTimer = null;
 
-    function applyReadMark(e) {
-        // Padam warna kuning yang lama
-        const oldMarks = editor.querySelectorAll('.last-read-mark');
-        oldMarks.forEach(el => el.classList.remove('last-read-mark'));
-
-        let target = e.target;
-
-        // Dapatkan node spesifik jika klik terkena background editor
-        if (target === editor) {
-            const sel = window.getSelection();
-            if (sel.rangeCount > 0) {
-                let node = sel.getRangeAt(0).startContainer;
-                target = node.nodeType === 3 ? node.parentNode : node;
+    editor.addEventListener('click', (e) => {
+        clickCount++;
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(() => {
+            if (clickCount >= 5) {
+                editor.querySelectorAll('.last-read-mark').forEach(el => el.classList.remove('last-read-mark'));
+                let target = e.target;
+                if (target !== editor) {
+                    let markTarget = target;
+                    while (markTarget && markTarget.parentNode !== editor && !['DIV', 'P', 'TD', 'LI'].includes(markTarget.tagName)) {
+                        if(markTarget.classList && markTarget.classList.contains('has-translate')) break;
+                        markTarget = markTarget.parentNode;
+                    }
+                    if (markTarget && markTarget !== editor) markTarget.classList.add('last-read-mark');
+                    else if(target.classList) target.classList.add('last-read-mark');
+                    editor.dispatchEvent(new Event('input')); // Supaya Cloud Sync simpan warna kuning
+                }
             }
-        }
-
-        if (target && editor.contains(target) && target !== editor) {
-            let markTarget = target;
-            // Cari elemen perenggan atau baris yang sesuai
-            while (markTarget && markTarget.parentNode !== editor && !['DIV', 'P', 'TD', 'LI', 'H1', 'H2', 'H3'].includes(markTarget.tagName)) {
-                if(markTarget.tagName === 'TABLE' || markTarget.tagName === 'TBODY') break; 
-                // Jangan padamkan span terjemahan kalau ada
-                if(markTarget.classList && markTarget.classList.contains('has-translate')) break;
-                markTarget = markTarget.parentNode;
-            }
-            
-            if (markTarget && markTarget !== editor) {
-                markTarget.classList.add('last-read-mark');
-            } else {
-                if(target.classList) target.classList.add('last-read-mark');
-            }
-            
-            // Trigger input supaya auto-save simpan perubahan warna ini ke Firebase
-            editor.dispatchEvent(new Event('input'));
-        }
-    }
-
-    editor.addEventListener('dblclick', function(e) {
-        applyReadMark(e);
+            clickCount = 0;
+        }, 500); // Mesti 5 klik dalam 0.5 saat
     });
-
-    editor.addEventListener('touchend', function(e) {
-        const currentTime = new Date().getTime();
-        const tapLength = currentTime - lastTapTime;
-        // Jika ketik 2 kali dalam sela masa 400ms
-        if (tapLength < 400 && tapLength > 0) {
-            applyReadMark(e);
-        }
-        lastTapTime = currentTime;
-    });
-    // ---------------------------------------------------------------------------
 }
 
-// Fungsi doCmd untuk pastikan text format tak lari
 window.doCmd = function(c, v=null) {
     restoreSelection(); 
     document.execCommand(c, false, v);
     if(editor) editor.focus();
     saveSelection(); 
 };
-// --------------------------------------------------------
 
-// --- [TAMBAHAN SAYA] FUNGSI TERJEMAHAN (INLINE TRANSLATION) ---
+// --- [TAMBAHAN] LOGIK TERJEMAHAN (🌐 T.JEMAH & 🔄 FLIP) ---
 window.setTranslation = function() {
     saveSelection();
     const sel = window.getSelection();
+    let node = sel.anchorNode;
+    let span = node && node.nodeType === 3 ? node.parentNode.closest('.has-translate') : (node && node.closest ? node.closest('.has-translate') : null);
     
-    if (!sel || sel.rangeCount === 0 || sel.toString().trim() === "") {
-        // Semak jika cursor berada dalam ayat terjemahan yang sedia ada (untuk edit)
-        let node = sel.anchorNode;
-        let span = node && node.nodeType === 3 ? node.parentNode.closest('.has-translate') : (node && node.closest ? node.closest('.has-translate') : null);
-        
-        if (span) {
-            const newTrans = prompt("Sunting terjemahan:", span.getAttribute('data-ms'));
-            if (newTrans !== null && newTrans.trim() !== "") {
-                span.setAttribute('data-ms', newTrans.replace(/"/g, '&quot;'));
-                if (span.getAttribute('data-lang') === 'ms') {
-                    span.innerText = newTrans; 
-                }
-                if (editor) editor.dispatchEvent(new Event('input'));
-            }
-        } else {
-            alert("Sila highlight (pilih) ayat bahasa Inggeris terlebih dahulu.");
+    if (span) {
+        const newTrans = prompt("Sunting terjemahan Melayu:", span.getAttribute('data-ms'));
+        if (newTrans !== null) {
+            span.setAttribute('data-ms', newTrans);
+            if (span.getAttribute('data-lang') === 'ms') span.innerText = newTrans;
+            editor.dispatchEvent(new Event('input'));
         }
         return;
     }
 
+    if (!sel || sel.toString().trim() === "") return alert("Sila highlight teks Inggeris dahulu!");
     const originalText = sel.toString();
     const trans = prompt("Masukkan terjemahan Melayu untuk ayat ini:");
-
     if (trans !== null && trans.trim() !== "") {
         const spanHTML = `<span class="has-translate" data-en="${originalText.replace(/"/g, '&quot;')}" data-ms="${trans.replace(/"/g, '&quot;')}" data-lang="en">${originalText}</span>`;
         restoreSelection();
         document.execCommand('insertHTML', false, spanHTML);
-        if(editor) { editor.focus(); editor.dispatchEvent(new Event('input')); }
+        editor.dispatchEvent(new Event('input'));
         saveSelection();
     }
 };
-
-function flipSpan(span, forceLang = null) {
-    const currentLang = span.getAttribute('data-lang') || 'en';
-    const targetLang = forceLang ? forceLang : (currentLang === 'en' ? 'ms' : 'en');
-
-    if (targetLang === 'ms') {
-        span.innerText = span.getAttribute('data-ms');
-        span.setAttribute('data-lang', 'ms');
-        span.style.color = '#34d399'; // Emerald 400 (Warna hijau)
-    } else {
-        span.innerText = span.getAttribute('data-en');
-        span.setAttribute('data-lang', 'en');
-        span.style.color = ''; // Reset warna ke asal
-    }
-}
 
 window.toggleTranslation = function() {
     saveSelection();
@@ -363,38 +296,38 @@ window.toggleTranslation = function() {
     let node = sel.anchorNode;
     let span = node && node.nodeType === 3 ? node.parentNode.closest('.has-translate') : (node && node.closest ? node.closest('.has-translate') : null);
 
-    if (span) {
-        flipSpan(span); // Flip spesifik yang dipilih
-    } else {
-        // Jika tak pilih spesifik, flip SEMUA span
-        const allSpans = document.querySelectorAll('.has-translate');
-        if(allSpans.length === 0) return alert("Tiada terjemahan dijumpai di dalam nota ini.");
-        
-        const firstLang = allSpans[0].getAttribute('data-lang') === 'ms' ? 'en' : 'ms';
-        allSpans.forEach(s => flipSpan(s, firstLang));
-    }
+    const flip = (s, lang) => {
+        if (lang === 'ms') {
+            s.innerText = s.getAttribute('data-ms');
+            s.setAttribute('data-lang', 'ms');
+            s.style.color = '#34d399'; // Emerald 400
+        } else {
+            s.innerText = s.getAttribute('data-en');
+            s.setAttribute('data-lang', 'en');
+            s.style.color = '';
+        }
+    };
 
-    if(editor) editor.dispatchEvent(new Event('input'));
+    if (span) {
+        const next = span.getAttribute('data-lang') === 'en' ? 'ms' : 'en';
+        flip(span, next);
+    } else {
+        const all = document.querySelectorAll('.has-translate');
+        if(all.length === 0) return;
+        const nextAll = all[0].getAttribute('data-lang') === 'en' ? 'ms' : 'en';
+        all.forEach(s => flip(s, nextAll));
+    }
+    editor.dispatchEvent(new Event('input'));
     saveSelection();
 };
-// --------------------------------------------------------------
 
-// Toolbar & Nav
+// --- TOOLBAR & NAV ORIGINAL ---
 document.querySelectorAll('[data-action]').forEach(b => { 
-    b.onclick = () => { 
-        window.doCmd(b.dataset.action); 
-    }; 
+    b.onclick = () => { window.doCmd(b.dataset.action); }; 
 });
 
 const colorPicker = document.getElementById('color-picker');
 if(colorPicker) colorPicker.oninput = (e) => window.doCmd('foreColor', e.target.value);
-
-// Saya kekalkan juga button lama in case awak nak pakai balik di masa depan
-const btnSizeUp = document.getElementById('btn-size-up');
-if(btnSizeUp) btnSizeUp.onclick = () => window.doCmd('fontSize', '5');
-
-const btnSizeDown = document.getElementById('btn-size-down');
-if(btnSizeDown) btnSizeDown.onclick = () => window.doCmd('fontSize', '3');
 
 const btnBackHome = document.getElementById('btn-back-home');
 if(btnBackHome) btnBackHome.onclick = () => showPage('home');
@@ -414,24 +347,18 @@ if(btnAddFolder) btnAddFolder.onclick = async () => {
     if(t) { await foldersRef(state.currentFileId).add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }
 };
 
-// --- FUNGSI JADUAL YANG DIBAIKI (DENGAN MEMORI) ---
 window.insertTable = function() {
     saveSelection(); 
-    
-    const rows = prompt("Berapa baris (rows) yang anda perlukan?", "3");
-    const cols = prompt("Berapa lajur (columns) yang anda perlukan?", "3");
-    
-    if (rows && cols && !isNaN(rows) && !isNaN(cols)) {
+    const rows = prompt("Berapa baris (rows)?", "3");
+    const cols = prompt("Berapa lajur (columns)?", "3");
+    if (rows && cols) {
         let tableHTML = '<table style="width:100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #475569;"><tbody>';
         for (let r = 0; r < parseInt(rows); r++) {
             tableHTML += '<tr>';
-            for (let c = 0; c < parseInt(cols); c++) {
-                tableHTML += `<td style="border: 1px solid #475569; padding: 8px; min-width: 50px;">Sel</td>`;
-            }
+            for (let c = 0; c < parseInt(cols); c++) tableHTML += `<td style="border: 1px solid #475569; padding: 8px; min-width: 50px;">Sel</td>`;
             tableHTML += '</tr>';
         }
         tableHTML += '</tbody></table><br/>';
-        
         restoreSelection(); 
         document.execCommand('insertHTML', false, tableHTML);
         if(editor) editor.focus();
