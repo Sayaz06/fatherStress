@@ -46,21 +46,18 @@
       min-width: 50px;
     }
 
-    /* GAYA PENANDA 5 KLIK (YELLOW MARK) */
-    .last-read-mark {
-      background-color: rgba(234, 179, 8, 0.25) !important;
-      border-left: 4px solid #eab308 !important;
-      border-radius: 2px;
-      padding-left: 5px;
-      transition: all 0.3s ease;
+    /* --- INJECT: GAYA BAHARU V6.2 PRO --- */
+    .last-read-mark { 
+      background-color: rgba(253, 224, 71, 0.3); /* Kuning lembut */
+      border-radius: 3px; 
     }
-
-    /* GAYA TEKS TERJEMAHAN (PURPLE DASH) */
-    .has-translate {
-      border-bottom: 1.5px dashed #a855f7;
-      background-color: rgba(168, 85, 247, 0.1);
-      cursor: text;
+    .has-translate { 
+      color: #c084fc; /* Teks Ungu */
+      text-decoration: underline; 
+      text-decoration-style: dotted; 
+      cursor: pointer; 
     }
+    /* ---------------------------------- */
   </style>
 </head>
 <body class="min-h-screen w-full">
@@ -99,7 +96,7 @@
 
     <section id="view-note" class="hidden relative">
       <div class="flex items-center justify-end mb-3 gap-2">
-        <div class="text-right w-full">
+        <div class="text-right">
           <h3 id="labelFolder" class="font-bold text-indigo-400 text-xs truncate break-text"></h3>
           <p id="saveStatus" class="text-[9px] text-slate-500 h-3 italic"></p>
         </div>
@@ -110,9 +107,7 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-1 p-2 bg-slate-800 rounded-t-xl border border-slate-700 sticky top-[60px] z-40 shadow-xl">
-        
-        <button id="btnBackToFolders" class="px-3 h-9 flex items-center justify-center rounded bg-slate-700 text-[10px] font-bold hover:bg-slate-600 border border-slate-600">← KEMBALI</button>
-        <div class="h-6 w-[1px] bg-slate-600 mx-1"></div>
+        <button id="btnBackToFolders" class="px-3 h-9 rounded bg-slate-700 hover:bg-slate-600 text-[10px] font-bold mr-1">← KEMBALI</button>
 
         <button title="Undo" class="w-9 h-9 flex items-center justify-center bg-slate-900 rounded hover:bg-slate-600" onclick="doCmd('undo')">↩</button>
         <button title="Redo" class="w-9 h-9 flex items-center justify-center bg-slate-900 rounded hover:bg-slate-600" onclick="doCmd('redo')">↪</button>
@@ -134,9 +129,8 @@
         <input type="color" oninput="doCmd('foreColor', this.value)" class="w-9 h-9 bg-transparent cursor-pointer" title="Warna Teks"/>
         
         <button title="Tambah Jadual" class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold text-lg" onclick="insertTable()">▦</button>
-
-        <div class="h-6 w-[1px] bg-slate-600 mx-1"></div>
-        <button title="Set Terjemahan" class="px-2 h-9 flex items-center justify-center bg-purple-900/50 text-purple-200 rounded font-bold text-[10px] border border-purple-700/50" onclick="window.setTranslation()">🌐 T.JEMAH</button>
+        
+        <button id="btnTranslate" class="px-2 h-9 bg-purple-600/20 text-purple-400 text-[9px] rounded border border-purple-900/50 font-bold ml-1" onclick="applyTranslation()">🌐 T.JEMAH</button>
         
         <button id="btnManualSave" class="ml-auto px-2 h-9 bg-indigo-900 text-indigo-100 text-[9px] rounded border border-indigo-500 font-bold">SIMPAN SEJARAH</button>
         <button id="btnHistory" class="px-2 h-9 bg-amber-600/20 text-amber-400 text-[9px] rounded border border-amber-900/50 font-bold ml-1">🕒 LIHAT</button>
@@ -144,9 +138,7 @@
       
       <div id="editor" class="editor" contenteditable="true" spellcheck="false" placeholder="Tulis nota anda di sini..."></div>
       
-      <button onclick="window.toggleTranslation()" class="fixed bottom-10 right-4 w-12 h-12 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-emerald-400 z-[60] text-xl active:scale-90 transition-transform" title="Flip Bahasa">
-        🔄
-      </button>
+      <button id="btnFlipLang" onclick="flipTranslation()" class="fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-500 text-white rounded-full shadow-[0_0_15px_rgba(168,85,247,0.5)] flex items-center justify-center text-2xl z-50 transition-transform active:scale-90" title="Tukar Bahasa">🔄</button>
 
       <div id="modalHistory" class="fixed inset-0 bg-black/90 z-[100] hidden flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
@@ -161,7 +153,7 @@
   </main>
 
   <script>
-    // KOD SAYA KEKALKAN 100% MENGIKUT ORIGINAL AWAK
+    // FIREBASE CONFIG - GUNA MILIK ANDA
     const firebaseConfig = {
       apiKey: "AIzaSyCtxOE42D07yFc9eK3nLMsOy50SmeSErwI",
       authDomain: "fatherstress-9e695.firebaseapp.com",
@@ -177,6 +169,7 @@
 
     let state = { uid: null, fileId: null, folderId: null, noteId: null, saveTimer: null };
 
+    // --- NAVIGATION ---
     function showView(id) {
       document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
       document.getElementById('view-' + id).classList.remove('hidden');
@@ -198,12 +191,20 @@
     document.getElementById('btnGoogle').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
     document.getElementById('btnLogout').onclick = () => auth.signOut();
 
+    // --- CRUD (Susunan Abjad & Nombor) ---
     async function loadFiles() {
       const snap = await db.collection('users').doc(state.uid).collection('files').get();
       const list = document.getElementById('listFiles'); list.innerHTML = '';
+      
       let items = [];
       snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-      items.sort((a, b) => (a.title || "").toLowerCase().localeCompare((b.title || "").toLowerCase(), undefined, { numeric: true }));
+      
+      items.sort((a, b) => {
+        let titleA = (a.title || "").toLowerCase();
+        let titleB = (b.title || "").toLowerCase();
+        return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
       items.forEach(d => {
         const div = document.createElement('div');
         div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex justify-between items-center gap-2";
@@ -219,9 +220,16 @@
     async function loadFolders() {
       const snap = await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').get();
       const list = document.getElementById('listFolders'); list.innerHTML = '';
+      
       let items = [];
       snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-      items.sort((a, b) => (a.title || "").toLowerCase().localeCompare((b.title || "").toLowerCase(), undefined, { numeric: true }));
+      
+      items.sort((a, b) => {
+        let titleA = (a.title || "").toLowerCase();
+        let titleB = (b.title || "").toLowerCase();
+        return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
       items.forEach(d => {
         const div = document.createElement('div');
         div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex justify-between items-center gap-2";
@@ -246,8 +254,18 @@
       } else {
         state.noteId = snap.docs[0].id; editor.innerHTML = snap.docs[0].data().content || '';
       }
+
+      // --- INJECT: AUTO-SCROLL KE LAST READ MARK ---
+      setTimeout(() => {
+        const mark = document.querySelector('.last-read-mark');
+        if (mark) {
+          mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500); // Tunggu sikit bagi HTML render
+      // ---------------------------------------------
     }
 
+    // --- TURBO AUTO-SAVE (2.5 SAAT) ---
     const editorEl = document.getElementById('editor');
     editorEl.oninput = () => {
       clearTimeout(state.saveTimer);
@@ -263,11 +281,16 @@
       }, 2500);
     };
 
+    // --- PENYELESAIAN MASALAH HILANG HIGHLIGHT DI TELEFON ---
     let savedSelection = null;
+    
     function saveSelection() {
       const sel = window.getSelection();
-      if (sel.getRangeAt && sel.rangeCount > 0) savedSelection = sel.getRangeAt(0);
+      if (sel.getRangeAt && sel.rangeCount > 0) {
+        savedSelection = sel.getRangeAt(0);
+      }
     }
+
     function restoreSelection() {
       if (savedSelection) {
         const sel = window.getSelection();
@@ -275,29 +298,36 @@
         sel.addRange(savedSelection);
       }
     }
+
     editorEl.addEventListener('keyup', saveSelection);
     editorEl.addEventListener('mouseup', saveSelection);
     editorEl.addEventListener('touchend', saveSelection);
     editorEl.addEventListener('focusout', saveSelection);
 
     function doCmd(c, v=null) {
-      restoreSelection();
+      restoreSelection(); 
       document.execCommand(c, false, v);
       editorEl.focus();
-      saveSelection();
+      saveSelection(); 
     }
 
     function insertTable() {
       saveSelection(); 
-      const rows = prompt("Baris?", "3"), cols = prompt("Lajur?", "3");
+      
+      const rows = prompt("Berapa baris (rows) yang anda perlukan?", "3");
+      const cols = prompt("Berapa lajur (columns) yang anda perlukan?", "3");
+      
       if (rows && cols && !isNaN(rows) && !isNaN(cols)) {
         let tableHTML = '<table style="width:100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #475569;"><tbody>';
         for (let r = 0; r < parseInt(rows); r++) {
           tableHTML += '<tr>';
-          for (let c = 0; c < parseInt(cols); c++) tableHTML += `<td style="border: 1px solid #475569; padding: 8px; min-width: 50px;">Sel</td>`;
+          for (let c = 0; c < parseInt(cols); c++) {
+            tableHTML += `<td style="border: 1px solid #475569; padding: 8px; min-width: 50px;">Sel</td>`;
+          }
           tableHTML += '</tr>';
         }
         tableHTML += '</tbody></table><br/>';
+        
         restoreSelection(); 
         document.execCommand('insertHTML', false, tableHTML);
         editorEl.focus();
@@ -308,19 +338,33 @@
     document.getElementById('btnManualSave').onclick = async () => {
       const content = editorEl.innerHTML;
       if(!content || !state.noteId) return alert("Nota kosong.");
-      const loader = document.getElementById('saveLoader'), bar = document.getElementById('progressBar');
-      loader.classList.remove('hidden'); bar.style.width = '0%';
+      
+      const loader = document.getElementById('saveLoader');
+      const bar = document.getElementById('progressBar');
+      loader.classList.remove('hidden');
+      bar.style.width = '0%';
       setTimeout(() => bar.style.width = '60%', 200);
+
       try {
         const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
+        
         const oldHistory = await noteDoc.collection('history_manual').get();
         const batch = db.batch();
         oldHistory.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
+
         await noteDoc.collection('history_manual').add({ content, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+        
         bar.style.width = '100%';
-        setTimeout(() => { loader.classList.add('hidden'); document.getElementById('saveStatus').textContent = 'Sejarah Diperbaharui!'; }, 800);
-      } catch (e) { loader.classList.add('hidden'); alert('Gagal simpan: ' + e.message); }
+        setTimeout(() => {
+          loader.classList.add('hidden');
+          document.getElementById('saveStatus').textContent = 'Sejarah Diperbaharui!';
+          setTimeout(() => document.getElementById('saveStatus').textContent = '', 2000);
+        }, 800);
+      } catch (e) {
+        loader.classList.add('hidden');
+        alert('Gagal simpan: ' + e.message);
+      }
     };
 
     async function toggleHistory(show) {
@@ -329,12 +373,16 @@
       modal.classList.remove('hidden');
       const list = document.getElementById('historyList');
       list.innerHTML = '<p class="text-xs animate-pulse">Menarik data...</p>';
+
       const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
       const snap = await noteDoc.collection('history_manual').orderBy('timestamp', 'desc').limit(1).get();
+
       list.innerHTML = '';
       if(snap.empty) return list.innerHTML = '<p class="text-xs opacity-50 p-10">Tiada sejarah manual disimpan.</p>';
+
       snap.forEach(doc => {
-        const d = doc.data(), btn = document.createElement('button');
+        const d = doc.data();
+        const btn = document.createElement('button');
         btn.className = `w-full p-4 rounded-xl border border-indigo-900 bg-indigo-900/10 text-left`;
         btn.innerHTML = `<span class="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Snapshot Terakhir</span><br><span class="text-xs">${d.timestamp?.toDate().toLocaleString() || 'Baru'}</span>`;
         btn.onclick = () => { if(confirm(`Pulihkan versi ini?`)) { editorEl.innerHTML = d.content; modal.classList.add('hidden'); editorEl.dispatchEvent(new Event('input')); }};
@@ -344,12 +392,132 @@
 
     document.getElementById('btnHistory').onclick = () => toggleHistory(true);
     document.getElementById('btnBackToFolders').onclick = () => showView('folders');
+    
     async function editTitle(p,id,o,cb){ const n = prompt('Tukar Nama:',o); if(n && n!==o){ await db.collection('users').doc(state.uid).collection(p).doc(id).update({title:n}); cb(); } }
     async function deleteItem(p,id,cb){ if(confirm('Padam item ini secara kekal?')){ await db.collection('users').doc(state.uid).collection(p).doc(id).delete(); cb(); } }
+    
     document.getElementById('btnAddFile').onclick = async () => { const t = prompt('Nama Fail Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }};
     document.getElementById('btnAddFolder').onclick = async () => { const t = prompt('Nama Folder Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }};
 
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js");
+
+    /* =====================================================================
+       INJECT: FUNGSI BAHARU WAN-LAW V6.2 PRO (5-Klik, Translate, Flip)
+       ===================================================================== */
+    
+    // 1. Logik 5-Klik Pantas Untuk Penanda Bacaan
+    let clickCount = 0;
+    let clickTimer;
+    editorEl.addEventListener('click', function(e) {
+      clickCount++;
+      if (clickCount === 1) {
+        clickTimer = setTimeout(() => { clickCount = 0; }, 800); // Masa reset (0.8s)
+      }
+      if (clickCount >= 5) {
+        clearTimeout(clickTimer);
+        clickCount = 0;
+        applyLastReadMark();
+      }
+    });
+
+    function applyLastReadMark() {
+      const sel = window.getSelection();
+      if (!sel.focusNode) return;
+
+      // Padam semua penanda kuning lama
+      const oldMarks = document.querySelectorAll('.last-read-mark');
+      oldMarks.forEach(mark => {
+        const text = document.createTextNode(mark.textContent);
+        mark.parentNode.replaceChild(text, mark);
+      });
+
+      // Tanda ayat/perkataan baru berdasarkan klik kursor
+      let textNode = sel.focusNode;
+      if (textNode.nodeType === Node.TEXT_NODE && textNode.textContent.trim().length > 0) {
+        let span = document.createElement('span');
+        span.className = 'last-read-mark';
+        span.textContent = textNode.textContent;
+        textNode.parentNode.replaceChild(span, textNode);
+        
+        // Cipta input event supaya auto-save trigger & simpan ke awan
+        editorEl.dispatchEvent(new Event('input'));
+      }
+    }
+
+    // 2. Sistem Terjemahan (Inline)
+    function applyTranslation() {
+      const sel = window.getSelection();
+      if (!sel.rangeCount || sel.isCollapsed) {
+        alert("Sila highlight/pilih teks terlebih dahulu untuk diterjemah.");
+        return;
+      }
+      
+      const originalText = sel.toString();
+      const translatedText = prompt("Masukkan maksud untuk: '" + originalText + "'");
+      
+      if (!translatedText) return; // Batal jika kosong
+
+      const span = document.createElement('span');
+      span.className = 'has-translate';
+      span.setAttribute('data-en', originalText);
+      span.setAttribute('data-ms', translatedText);
+      span.textContent = originalText; // Kekalkan paparan asal dahulu
+
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(span);
+      sel.removeAllRanges();
+
+      // Trigger auto save
+      editorEl.dispatchEvent(new Event('input'));
+    }
+
+    // 3. Logik Flip Teks
+    function flipTranslation() {
+      const sel = window.getSelection();
+      let targetNode = null;
+
+      // Semak jika cursor berada di dalam elemen terjemahan (.has-translate)
+      if (sel.rangeCount > 0) {
+        let node = sel.getRangeAt(0).startContainer;
+        while (node && node !== editorEl) {
+          if (node.nodeType === 1 && node.classList.contains('has-translate')) {
+            targetNode = node;
+            break;
+          }
+          node = node.parentNode;
+        }
+      }
+
+      if (targetNode) {
+        // Jika kursor dalam teks ungu, flip ayat itu SAHAJA
+        flipNode(targetNode);
+      } else {
+        // Jika kursor di luar, flip SEMUA teks terjemahan dalam nota
+        document.querySelectorAll('.has-translate').forEach(flipNode);
+      }
+
+      // Trigger auto-save selepas flip selesai
+      editorEl.dispatchEvent(new Event('input'));
+    }
+
+    function flipNode(node) {
+      const currentText = node.textContent;
+      const en = node.getAttribute('data-en');
+      const ms = node.getAttribute('data-ms');
+      
+      if (currentText === en) {
+        node.textContent = ms; // Tukar ke BM
+      } else {
+        node.textContent = en; // Tukar balik BI
+      }
+    }
+    /* ===================================================================== */
+
+  </script> 
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js");
+    }
   </script>
 </body>
 </html>
