@@ -264,13 +264,15 @@ if(editor) {
             // Cari elemen perenggan atau baris yang sesuai
             while (markTarget && markTarget.parentNode !== editor && !['DIV', 'P', 'TD', 'LI', 'H1', 'H2', 'H3'].includes(markTarget.tagName)) {
                 if(markTarget.tagName === 'TABLE' || markTarget.tagName === 'TBODY') break; 
+                // Jangan padamkan span terjemahan kalau ada
+                if(markTarget.classList && markTarget.classList.contains('has-translate')) break;
                 markTarget = markTarget.parentNode;
             }
             
             if (markTarget && markTarget !== editor) {
                 markTarget.classList.add('last-read-mark');
             } else {
-                target.classList.add('last-read-mark');
+                if(target.classList) target.classList.add('last-read-mark');
             }
             
             // Trigger input supaya auto-save simpan perubahan warna ini ke Firebase
@@ -302,6 +304,80 @@ window.doCmd = function(c, v=null) {
     saveSelection(); 
 };
 // --------------------------------------------------------
+
+// --- [TAMBAHAN SAYA] FUNGSI TERJEMAHAN (INLINE TRANSLATION) ---
+window.setTranslation = function() {
+    saveSelection();
+    const sel = window.getSelection();
+    
+    if (!sel || sel.rangeCount === 0 || sel.toString().trim() === "") {
+        // Semak jika cursor berada dalam ayat terjemahan yang sedia ada (untuk edit)
+        let node = sel.anchorNode;
+        let span = node && node.nodeType === 3 ? node.parentNode.closest('.has-translate') : (node && node.closest ? node.closest('.has-translate') : null);
+        
+        if (span) {
+            const newTrans = prompt("Sunting terjemahan:", span.getAttribute('data-ms'));
+            if (newTrans !== null && newTrans.trim() !== "") {
+                span.setAttribute('data-ms', newTrans.replace(/"/g, '&quot;'));
+                if (span.getAttribute('data-lang') === 'ms') {
+                    span.innerText = newTrans; 
+                }
+                if (editor) editor.dispatchEvent(new Event('input'));
+            }
+        } else {
+            alert("Sila highlight (pilih) ayat bahasa Inggeris terlebih dahulu.");
+        }
+        return;
+    }
+
+    const originalText = sel.toString();
+    const trans = prompt("Masukkan terjemahan Melayu untuk ayat ini:");
+
+    if (trans !== null && trans.trim() !== "") {
+        const spanHTML = `<span class="has-translate" data-en="${originalText.replace(/"/g, '&quot;')}" data-ms="${trans.replace(/"/g, '&quot;')}" data-lang="en">${originalText}</span>`;
+        restoreSelection();
+        document.execCommand('insertHTML', false, spanHTML);
+        if(editor) { editor.focus(); editor.dispatchEvent(new Event('input')); }
+        saveSelection();
+    }
+};
+
+function flipSpan(span, forceLang = null) {
+    const currentLang = span.getAttribute('data-lang') || 'en';
+    const targetLang = forceLang ? forceLang : (currentLang === 'en' ? 'ms' : 'en');
+
+    if (targetLang === 'ms') {
+        span.innerText = span.getAttribute('data-ms');
+        span.setAttribute('data-lang', 'ms');
+        span.style.color = '#34d399'; // Emerald 400 (Warna hijau)
+    } else {
+        span.innerText = span.getAttribute('data-en');
+        span.setAttribute('data-lang', 'en');
+        span.style.color = ''; // Reset warna ke asal
+    }
+}
+
+window.toggleTranslation = function() {
+    saveSelection();
+    const sel = window.getSelection();
+    let node = sel.anchorNode;
+    let span = node && node.nodeType === 3 ? node.parentNode.closest('.has-translate') : (node && node.closest ? node.closest('.has-translate') : null);
+
+    if (span) {
+        flipSpan(span); // Flip spesifik yang dipilih
+    } else {
+        // Jika tak pilih spesifik, flip SEMUA span
+        const allSpans = document.querySelectorAll('.has-translate');
+        if(allSpans.length === 0) return alert("Tiada terjemahan dijumpai di dalam nota ini.");
+        
+        const firstLang = allSpans[0].getAttribute('data-lang') === 'ms' ? 'en' : 'ms';
+        allSpans.forEach(s => flipSpan(s, firstLang));
+    }
+
+    if(editor) editor.dispatchEvent(new Event('input'));
+    saveSelection();
+};
+// --------------------------------------------------------------
 
 // Toolbar & Nav
 document.querySelectorAll('[data-action]').forEach(b => { 
