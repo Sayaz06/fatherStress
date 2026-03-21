@@ -138,15 +138,17 @@ async function openFolder(id, title) {
         if (data && editor.innerHTML !== data.content) { 
             editor.innerHTML = data.content || ''; 
             state.lastSavedContent = data.content; 
-            
-            // --- INJECT: AUTO-SCROLL KE LAST READ MARK ---
+
+            // --- KOD TAMBAHAN (INJECTED): Auto-Scroll ke penanda .last-read-mark bila buka nota ---
             setTimeout(() => {
-                const mark = document.querySelector('.last-read-mark');
-                if (mark) {
-                    mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if(editor) {
+                    const mark = editor.querySelector('.last-read-mark');
+                    if (mark) {
+                        mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
                 }
-            }, 500); // Masa penampan untuk pastikan DOM dirender sepenuhnya
-            // ---------------------------------------------
+            }, 300);
+            // --------------------------------------------------------------------------------------
         }
         renderHistorySlots(data.history || {});
     });
@@ -311,119 +313,146 @@ window.insertTable = function() {
     }
 };
 
+// =========================================================================
+// ==================== KOD TAMBAHAN (INJECTED) BERMULA ====================
+// =========================================================================
 
-/* =====================================================================
-   INJECT: FUNGSI BAHARU WAN-LAW V6.2 PRO (5-Klik, Translate, Flip)
-   ===================================================================== */
-
-// 1. Logik 5-Klik Pantas Untuk Penanda Bacaan
-let clickCount = 0;
-let clickTimer;
+// --- KOD TAMBAHAN (INJECTED): FUNGSI DOUBLE CLICK UNTUK PENANDA BACAAN (KLIK 2-KALI PANTAS) ---
 if (editor) {
-    editor.addEventListener('click', function(e) {
-        clickCount++;
-        if (clickCount === 1) {
-            clickTimer = setTimeout(() => { clickCount = 0; }, 800); // 800ms window untuk 5 klik
-        }
-        if (clickCount >= 5) {
-            clearTimeout(clickTimer);
-            clickCount = 0;
-            applyLastReadMark();
-        }
-    });
-}
+    editor.addEventListener('dblclick', () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount || selection.isCollapsed) return;
 
-function applyLastReadMark() {
-    const sel = window.getSelection();
-    if (!sel.focusNode) return;
-
-    // Padam semua penanda kuning lama
-    const oldMarks = document.querySelectorAll('.last-read-mark');
-    oldMarks.forEach(mark => {
-        const text = document.createTextNode(mark.textContent);
-        mark.parentNode.replaceChild(text, mark);
-    });
-
-    // Tanda ayat baru tempat cursor berada
-    let textNode = sel.focusNode;
-    if (textNode.nodeType === Node.TEXT_NODE && textNode.textContent.trim().length > 0) {
-        let span = document.createElement('span');
-        span.className = 'last-read-mark';
-        span.textContent = textNode.textContent;
-        textNode.parentNode.replaceChild(span, textNode);
-        
-        // Trigger auto-save Firebase
-        if(editor) editor.dispatchEvent(new Event('input'));
-    }
-}
-
-// 2. Sistem Terjemahan (Inline)
-window.applyTranslation = function() {
-    const sel = window.getSelection();
-    if (!sel.rangeCount || sel.isCollapsed) {
-        alert("Sila highlight/pilih teks terlebih dahulu untuk diterjemah.");
-        return;
-    }
-    
-    const originalText = sel.toString();
-    const translatedText = prompt("Masukkan maksud untuk: '" + originalText + "'");
-    
-    if (!translatedText) return;
-
-    const span = document.createElement('span');
-    span.className = 'has-translate';
-    span.setAttribute('data-en', originalText);
-    span.setAttribute('data-ms', translatedText);
-    span.textContent = originalText;
-
-    const range = sel.getRangeAt(0);
-    range.deleteContents();
-    range.insertNode(span);
-    sel.removeAllRanges();
-
-    // Trigger auto-save Firebase
-    if(editor) editor.dispatchEvent(new Event('input'));
-};
-
-// 3. Logik Flip Teks (Satu Teks Atau Semua Serentak)
-window.flipTranslation = function() {
-    const sel = window.getSelection();
-    let targetNode = null;
-
-    // Semak jika cursor berada di dalam elemen terjemahan
-    if (sel.rangeCount > 0) {
-        let node = sel.getRangeAt(0).startContainer;
-        while (node && node !== editor) {
-            if (node.nodeType === 1 && node.classList.contains('has-translate')) {
-                targetNode = node;
-                break;
+        // 1. Buang penanda lama jika ada supaya hanya ada SATU penanda dalam satu masa
+        const oldMark = editor.querySelector('.last-read-mark');
+        if (oldMark) {
+            const parent = oldMark.parentNode;
+            while(oldMark.firstChild) {
+                parent.insertBefore(oldMark.firstChild, oldMark);
             }
-            if (node.parentNode) node = node.parentNode;
-            else break;
+            parent.removeChild(oldMark);
         }
-    }
 
-    if (targetNode) {
-        // Kursor berada di dalam teks ungu, flip teks ini sahaja
-        flipNode(targetNode);
-    } else {
-        // Kursor berada di tempat lain, flip SEMUA teks terjemahan dalam editor
-        document.querySelectorAll('.has-translate').forEach(flipNode);
-    }
+        // 2. Tanda ayat/perkataan baru yang di-highlight
+        const range = selection.getRangeAt(0);
+        const span = document.createElement('span');
+        span.className = 'last-read-mark';
+        range.surroundContents(span);
+        selection.removeAllRanges();
 
-    // Trigger auto-save Firebase
-    if(editor) editor.dispatchEvent(new Event('input'));
-};
-
-function flipNode(node) {
-    const currentText = node.textContent;
-    const en = node.getAttribute('data-en');
-    const ms = node.getAttribute('data-ms');
-    
-    if (currentText === en) {
-        node.textContent = ms;
-    } else {
-        node.textContent = en;
-    }
+        // 3. Wajib cetus (trigger) event 'input' supaya sistem Auto-Save menyimpan data ini
+        editor.dispatchEvent(new Event('input'));
+    });
 }
-/* ===================================================================== */
+// -----------------------------------------------------------------------------------------------
+
+// --- KOD TAMBAHAN (INJECTED): FUNGSI TRANSLATE INLINE (🌐 T.JEMAH) ---
+// Dipautkan pada ID 'btnTranslate' di index.html
+const btnTranslate = document.getElementById('btnTranslate');
+if (btnTranslate) {
+    btnTranslate.onclick = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount || selection.isCollapsed) {
+            alert("Sila highlight (pilih) teks terlebih dahulu untuk diterjemah.");
+            return;
+        }
+        
+        const text = selection.toString().trim();
+        const translation = prompt(`Masukkan maksud terjemahan untuk:\n"${text}"`);
+        
+        if (translation) {
+            const range = selection.getRangeAt(0);
+            const span = document.createElement('span');
+            span.className = 'has-translate text-purple-400 font-medium'; // Mewarnakan ungu secara visual
+            span.dataset.en = text;
+            span.dataset.ms = translation;
+            span.textContent = text; // Kekalkan teks asal pada permulaannya
+            
+            range.surroundContents(span);
+            selection.removeAllRanges();
+            
+            // Trigger auto-save
+            if(editor) editor.dispatchEvent(new Event('input'));
+        }
+    };
+}
+// ---------------------------------------------------------------------
+
+// --- KOD TAMBAHAN (INJECTED): FUNGSI FLIP TRANSLATE (🔄) ---
+// Dipautkan pada butang bulat terapung ID 'btnFlipTranslate'
+const btnFlipTranslate = document.getElementById('btnFlipTranslate');
+if (btnFlipTranslate) {
+    btnFlipTranslate.onclick = () => {
+        const selection = window.getSelection();
+        let isInsideTranslate = false;
+        let targetSpan = null;
+        
+        // 1. Kenal pasti jika cursor / highlight semasa berada di dalam teks ungu (.has-translate)
+        if (selection.rangeCount > 0 && editor) {
+            let node = selection.anchorNode;
+            while(node && node !== editor) {
+                if(node.nodeType === 1 && node.classList.contains('has-translate')) {
+                    isInsideTranslate = true;
+                    targetSpan = node;
+                    break;
+                }
+                node = node.parentNode;
+            }
+        }
+
+        if (isInsideTranslate && targetSpan) {
+            // 2A. Jika di dalam teks ungu, flip teks tersebut sahaja
+            targetSpan.textContent = (targetSpan.textContent === targetSpan.dataset.en) ? targetSpan.dataset.ms : targetSpan.dataset.en;
+        } else if (editor) {
+            // 2B. Jika cursor di luar, flip KESEMUA teks terjemahan dalam nota secara serentak
+            const allTranslates = editor.querySelectorAll('.has-translate');
+            if(allTranslates.length === 0) return;
+            
+            // Kita jadikan elemen pertama sebagai penanda aras bahasa (sama ada sedang papar EN atau MS)
+            const firstOne = allTranslates[0];
+            const isCurrentlyEn = (firstOne.textContent === firstOne.dataset.en);
+            
+            allTranslates.forEach(span => {
+                span.textContent = isCurrentlyEn ? span.dataset.ms : span.dataset.en;
+            });
+        }
+        
+        // 3. Trigger auto-save untuk simpan perubahan ke pangkalan data awan Firebase
+        if(editor) editor.dispatchEvent(new Event('input'));
+    };
+}
+// -------------------------------------------------------------------
+
+// --- KOD TAMBAHAN (INJECTED): PEMBAIKAN FUNGSI CARIAN (SEARCH) SEPARA TEPAT ---
+// Digunakan supaya pencarian tidak terikat hanya pada permulaan ayat, dan meliputi ID carian lama & baharu
+const searchFilesInput = document.getElementById('searchFiles') || document.getElementById('search-files');
+if (searchFilesInput) {
+    searchFilesInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        // Menyokong elemen list dari index.html asal atau struktur div app.js
+        const list = document.getElementById('listFiles') || document.getElementById('files-list');
+        if (list) {
+            Array.from(list.children).forEach(el => {
+                // Tangkap semua kandungan teks di dalam elemen tanpa mengira class child
+                const textContent = el.innerText.toLowerCase();
+                // Gunakan kaedah 'includes' untuk padanan separa tepat
+                el.style.display = textContent.includes(query) ? '' : 'none'; 
+            });
+        }
+    });
+}
+
+const searchFoldersInput = document.getElementById('searchFolders') || document.getElementById('search-folders');
+if (searchFoldersInput) {
+    searchFoldersInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        const list = document.getElementById('listFolders') || document.getElementById('folders-list');
+        if (list) {
+            Array.from(list.children).forEach(el => {
+                const textContent = el.innerText.toLowerCase();
+                el.style.display = textContent.includes(query) ? '' : 'none';
+            });
+        }
+    });
+}
+// ------------------------------------------------------------------------------
