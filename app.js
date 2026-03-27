@@ -313,14 +313,14 @@ window.insertTable = function() {
     }
 };
 
-// --- FUNGSI BULLET HURAIAN BERSAMBUNG (DIBETULKAN) ---
+// --- FUNGSI BULLET HURAIAN BERSAMBUNG (DIBETULKAN TANPA WARNA) ---
 window.insertBulletLine = function(level) {
     saveSelection(); 
     
     // Gunakan simbol "Em Dash" (—) yang akan bersambung rapat secara automatik
     let dash = "—"; 
-    // Saya letak warna ungu sikit supaya nampak kemas macam bullet point, tapi kalau nak putih biasa beritahu ya
-    let html = '<span style="color: #a855f7; font-weight: bold;">' + dash.repeat(level) + ' </span>';
+    // Hanya masukkan teks tanpa sebarang format warna supaya ia ikut warna asal
+    let html = dash.repeat(level) + ' ';
     
     restoreSelection(); 
     document.execCommand('insertHTML', false, html);
