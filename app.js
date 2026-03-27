@@ -320,6 +320,9 @@ window.insertTable = function() {
 // --- KOD TAMBAHAN (INJECTED): FUNGSI DOUBLE CLICK UNTUK PENANDA BACAAN (KLIK 2-KALI PANTAS) ---
 if (editor) {
     editor.addEventListener('dblclick', () => {
+        // KOD TAMBAHAN: Semak jika fungsi penanda ditutup (OFF), hentikan tindakan
+        if (window.isMarkingEnabled === false) return;
+
         const selection = window.getSelection();
         if (!selection.rangeCount || selection.isCollapsed) return;
 
