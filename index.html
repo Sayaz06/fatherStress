@@ -155,10 +155,10 @@
         
         <button title="Tambah Jadual" class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold text-lg" onclick="insertTable()">▦</button>
 
-        <button title="Huraian Tahap 1 (Penuh)" class="px-2 h-9 flex items-center justify-center bg-slate-700 rounded text-indigo-400 font-bold text-xs ml-1" onclick="insertLine(1)">--</button>
-        <button title="Huraian Tahap 2" class="px-2 h-9 flex items-center justify-center bg-slate-700 rounded text-purple-400 font-bold text-xs ml-1" onclick="insertLine(2)">---</button>
-        <button title="Huraian Tahap 3" class="px-2 h-9 flex items-center justify-center bg-slate-700 rounded text-pink-400 font-bold text-xs ml-1" onclick="insertLine(3)">----</button>
-        <button title="Huraian Tahap 4 (Paling Kecil)" class="px-2 h-9 flex items-center justify-center bg-slate-700 rounded text-rose-400 font-bold text-xs ml-1" onclick="insertLine(4)">-----</button>
+        <button title="Huraian Tahap 1" class="px-2 h-9 flex items-center justify-center bg-slate-700 rounded text-indigo-400 font-bold text-xs ml-1" onclick="insertBulletLine(1)">-</button>
+        <button title="Huraian Tahap 2" class="px-2 h-9 flex items-center justify-center bg-slate-700 rounded text-purple-400 font-bold text-xs ml-1" onclick="insertBulletLine(2)">--</button>
+        <button title="Huraian Tahap 3" class="px-2 h-9 flex items-center justify-center bg-slate-700 rounded text-pink-400 font-bold text-xs ml-1" onclick="insertBulletLine(3)">---</button>
+        <button title="Huraian Tahap 4" class="px-2 h-9 flex items-center justify-center bg-slate-700 rounded text-rose-400 font-bold text-xs ml-1" onclick="insertBulletLine(4)">----</button>
         
         <button id="btnTranslate" title="Terjemah Teks Highlight" class="px-2 h-9 bg-purple-600/20 text-purple-400 border border-purple-500/50 rounded text-[10px] font-bold ml-1 mt-1 sm:mt-0">🌐 T.JEMAH</button>
         
@@ -508,18 +508,16 @@
       }
     }
 
-    // --- FUNGSI GARIS HURAIAN (INJECTED) ---
-    function insertLine(level) {
+    // --- FUNGSI BULLET HURAIAN BERSAMBUNG (DIBETULKAN) ---
+    function insertBulletLine(level) {
       saveSelection(); 
       
-      let hrHTML = '';
-      if(level === 1) hrHTML = '<hr style="border: 0; border-top: 2px solid #6366f1; width: 100%; margin: 15px 0;">'; // Biru (Penuh)
-      if(level === 2) hrHTML = '<hr style="border: 0; border-top: 2px solid #a855f7; width: 85%; margin: 15px 0 15px 15%;">'; // Ungu (Lekuk sikit)
-      if(level === 3) hrHTML = '<hr style="border: 0; border-top: 2px solid #ec4899; width: 70%; margin: 15px 0 15px 30%;">'; // Merah Jambu (Lekuk dalam)
-      if(level === 4) hrHTML = '<hr style="border: 0; border-top: 2px solid #f43f5e; width: 55%; margin: 15px 0 15px 45%;">'; // Merah (Lekuk paling dalam)
+      // Gunakan simbol "Em Dash" (—) yang akan bersambung rapat secara automatik
+      let dash = "—"; 
+      let html = '<span style="color: #a855f7; font-weight: bold;">' + dash.repeat(level) + ' </span>';
       
       restoreSelection(); 
-      document.execCommand('insertHTML', false, hrHTML + '<br>');
+      document.execCommand('insertHTML', false, html);
       editorEl.focus();
       saveSelection();
     }
