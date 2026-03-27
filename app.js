@@ -313,6 +313,22 @@ window.insertTable = function() {
     }
 };
 
+// --- FUNGSI GARIS HURAIAN (INJECTED) ---
+window.insertLine = function(level) {
+    saveSelection(); 
+    
+    let hrHTML = '';
+    if(level === 1) hrHTML = '<hr style="border: 0; border-top: 2px solid #6366f1; width: 100%; margin: 15px 0;">'; // Biru (Penuh)
+    if(level === 2) hrHTML = '<hr style="border: 0; border-top: 2px solid #a855f7; width: 85%; margin: 15px 0 15px 15%;">'; // Ungu (Lekuk sikit)
+    if(level === 3) hrHTML = '<hr style="border: 0; border-top: 2px solid #ec4899; width: 70%; margin: 15px 0 15px 30%;">'; // Merah Jambu (Lekuk dalam)
+    if(level === 4) hrHTML = '<hr style="border: 0; border-top: 2px solid #f43f5e; width: 55%; margin: 15px 0 15px 45%;">'; // Merah (Lekuk paling dalam)
+    
+    restoreSelection(); 
+    document.execCommand('insertHTML', false, hrHTML + '<br>');
+    if(editor) editor.focus();
+    saveSelection();
+};
+
 // =========================================================================
 // ==================== KOD TAMBAHAN (INJECTED) BERMULA ====================
 // =========================================================================
