@@ -64,7 +64,7 @@
     .floating-flip { 
       position: fixed; 
       right: 16px; 
-      top: 35%; /* Kedudukan penjuru kanan tengah sedikit atas */
+      top: 35%; 
       z-index: 60; 
       width: 46px; 
       height: 46px; 
@@ -217,13 +217,13 @@
 
     <section id="view-audio-page" class="hidden">
       <div class="flex items-center justify-between mb-4 gap-2">
-        <button id="btnBackToNoteFromAudio" class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded">← Kembali ke Nota</button>
+        <button id="btnBackToNoteFromAudio" class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded border border-slate-700">← Kembali ke Nota</button>
         <h3 class="font-bold text-emerald-400 text-sm truncate break-text">Senarai Audio Nota</h3>
       </div>
       
       <div class="flex gap-2 mb-4">
         <input type="file" id="file-audiopage-input" accept="audio/*" class="hidden" onchange="handleAudioPageUpload(event)">
-        <button onclick="document.getElementById('file-audiopage-input').click()" class="w-full px-6 py-3 rounded-xl bg-emerald-600 font-bold text-sm shadow-lg border border-emerald-500">➕ Tambah Audio Baru</button>
+        <button onclick="document.getElementById('file-audiopage-input').click()" class="w-full px-6 py-4 rounded-xl bg-emerald-600 font-bold text-sm shadow-lg border border-emerald-500 hover:bg-emerald-500 transition">➕ Tambah Audio Baru</button>
       </div>
       
       <div id="saveLoaderAudio" class="w-full h-1 bg-slate-800 hidden overflow-hidden mb-4 rounded">
@@ -231,7 +231,7 @@
       </div>
       <p id="audioUploadStatus" class="text-xs text-emerald-400 mb-4 text-center italic"></p>
       
-      <div id="listAudioPage" class="grid gap-3 w-full pb-20"></div>
+      <div id="listAudioPage" class="grid gap-4 w-full pb-20"></div>
     </section>
 
   </main>
@@ -253,399 +253,547 @@
     // KOD TAMBAHAN: Initialize Firebase Storage
     const storage = firebase.storage();
 
-    let state = { uid: null, fileId: null, folderId: null, noteId: null, saveTimer: null };
+    let state = { user: null, currentFileId: null, currentFolderId: null, currentNoteId: null, lastSavedContent: "" };
 
-    // --- NAVIGATION ---
-    function showView(id) {
-      document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-      document.getElementById('view-' + id).classList.remove('hidden');
-      window.scrollTo(0,0);
+    const views = { login: document.getElementById('view-login'), home: document.getElementById('view-home'), folders: document.getElementById('view-folders'), note: document.getElementById('view-note') };
+    const editor = document.getElementById('editor'), historyList = document.getElementById('history-list'), saveStatus = document.getElementById('save-status');
+
+    // ==========================================
+    // KOD AUDIO PAGE: DAFTARKAN VIEW BARU
+    // ==========================================
+    views.audioPage = document.getElementById('view-audio-page');
+
+    function showPage(viewName) {
+        Object.keys(views).forEach(key => views[key].classList.add('hidden'));
+        if(views[viewName]) views[viewName].classList.remove('hidden');
+        
+        const btnLogout = document.getElementById('btnLogout');
+        if(btnLogout) btnLogout.classList.toggle('hidden', viewName === 'login');
     }
 
     auth.onAuthStateChanged(user => {
-      if (user) { 
-        state.uid = user.uid; 
-        document.getElementById('btnLogout').classList.remove('hidden'); 
-        showView('home'); 
-        loadFiles(); 
-      } else { 
-        showView('login'); 
-        document.getElementById('btnLogout').classList.add('hidden'); 
-      }
+        state.user = user;
+        if (user) { 
+            state.uid = user.uid; 
+            showPage('home'); 
+            loadFiles(); 
+        } else { 
+            showPage('login'); 
+        }
     });
 
-    document.getElementById('btnGoogle').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-    document.getElementById('btnLogout').onclick = () => auth.signOut();
+    const btnGoogle = document.getElementById('btnGoogle');
+    if(btnGoogle) btnGoogle.onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
 
-    // --- CRUD (Susunan Abjad & Nombor) ---
-    async function loadFiles() {
-      const snap = await db.collection('users').doc(state.uid).collection('files').get();
-      const list = document.getElementById('listFiles'); list.innerHTML = '';
-      
-      let items = [];
-      snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-      
-      items.sort((a, b) => {
-        let titleA = (a.title || "").toLowerCase();
-        let titleB = (b.title || "").toLowerCase();
-        return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
-      });
+    const btnLogout = document.getElementById('btnLogout');
+    if(btnLogout) btnLogout.onclick = () => auth.signOut();
 
-      items.forEach(d => {
-        const div = document.createElement('div');
-        div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex justify-between items-center gap-2";
-        div.innerHTML = `<button class="font-bold flex-1 text-left text-sm break-text">${d.title || 'Fail'}</button>
-          <div class="flex gap-2"><button class="p-2 bg-slate-700 rounded text-xs edit-btn">✏️</button><button class="p-2 bg-red-900/20 text-red-500 rounded text-xs del-btn">🗑️</button></div>`;
-        div.querySelector('button').onclick = () => { state.fileId = d.id; document.getElementById('labelFile').textContent = d.title; showView('folders'); loadFolders(); };
-        div.querySelector('.edit-btn').onclick = () => editTitle('files', d.id, d.title, loadFiles);
-        div.querySelector('.del-btn').onclick = () => deleteItem('files', d.id, loadFiles);
-        list.appendChild(div);
-      });
+    const filesRef = () => db.collection('users').doc(state.uid).collection('files');
+    const foldersRef = (fId) => filesRef().doc(fId).collection('folders');
+    const notesRef = (fId, folId) => foldersRef(fId).doc(folId).collection('notes');
+
+    // --- RENDERER DENGAN BUTTON EDIT KHUSUS & SUSUNAN ABJAD/ANGKA ---
+    function renderCleanItems(snapshot, targetEl, onOpen, onUpdate, onDelete) {
+        if(!targetEl) return;
+        targetEl.innerHTML = '';
+        let items = [];
+        snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+
+        items.sort((a, b) => {
+            let titleA = (a.title || "").toLowerCase();
+            let titleB = (b.title || "").toLowerCase();
+            return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex justify-between items-center gap-2";
+            div.innerHTML = `<button class="font-bold flex-1 text-left text-sm break-text">${item.title || 'Fail/Folder'}</button>
+              <div class="flex gap-2"><button class="p-2 bg-slate-700 rounded text-xs edit-btn">✏️</button><button class="p-2 bg-red-900/20 text-red-500 rounded text-xs del-btn">🗑️</button></div>`;
+            div.querySelector('button').onclick = () => onOpen(item.id, item.title);
+            div.querySelector('.edit-btn').onclick = () => {
+                const newTitle = prompt("Masukkan tajuk baharu:", item.title);
+                if (newTitle !== null && newTitle.trim() !== "") {
+                    onUpdate(item.id, newTitle.trim());
+                    if(state.currentFileId && views.folders && views.folders.classList.contains('hidden')) { loadFiles(); } else { loadFolders(); }
+                }
+            };
+            div.querySelector('.del-btn').onclick = () => onDelete(item.id);
+            targetEl.appendChild(div);
+        });
     }
+
+    // --- LOGIC FUNCTIONS ---
+    async function loadFiles() {
+        const snap = await filesRef().get(); 
+        renderCleanItems(snap, document.getElementById('listFiles'), openFile, (id, t) => filesRef().doc(id).update({title: t}), deleteFile);
+    }
+
+    function openFile(id, title) {
+        state.currentFileId = id;
+        const labelFile = document.getElementById('labelFile');
+        if(labelFile) labelFile.innerText = title;
+        showPage('folders'); loadFolders();
+    }
+
+    async function deleteFile(id) { if(confirm("Padam fail?")) { await filesRef().doc(id).delete(); loadFiles(); } }
 
     async function loadFolders() {
-      const snap = await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').get();
-      const list = document.getElementById('listFolders'); list.innerHTML = '';
-      
-      let items = [];
-      snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-      
-      items.sort((a, b) => {
-        let titleA = (a.title || "").toLowerCase();
-        let titleB = (b.title || "").toLowerCase();
-        return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
-      });
-
-      items.forEach(d => {
-        const div = document.createElement('div');
-        div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex justify-between items-center gap-2";
-        div.innerHTML = `<button class="font-bold flex-1 text-left text-sm break-text">${d.title || 'Folder'}</button>
-          <div class="flex gap-2"><button class="p-2 bg-slate-700 rounded text-xs edit-btn">✏️</button><button class="p-2 bg-red-900/20 text-red-500 rounded text-xs del-btn">🗑️</button></div>`;
-        div.querySelector('button').onclick = () => openNote(d.id, d.title);
-        div.querySelector('.edit-btn').onclick = () => editTitle(`files/${state.fileId}/folders`, d.id, d.title, loadFolders);
-        div.querySelector('.del-btn').onclick = () => deleteItem(`files/${state.fileId}/folders`, d.id, loadFolders);
-        list.appendChild(div);
-      });
+        const snap = await foldersRef(state.currentFileId).get();
+        renderCleanItems(snap, document.getElementById('listFolders'), openFolder, (id, t) => foldersRef(state.currentFileId).doc(id).update({title: t}), deleteFolder);
     }
 
-    async function openNote(id, title) {
-      state.folderId = id; document.getElementById('labelFolder').textContent = title;
-      const editor = document.getElementById('editor'); editor.innerHTML = 'Memuatkan nota...';
-      showView('note');
-      const noteRef = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(id).collection('notes');
-      const snap = await noteRef.limit(1).get();
-      if (snap.empty) {
-        const n = await noteRef.add({ content: '', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-        state.noteId = n.id; editor.innerHTML = '';
-      } else {
-        state.noteId = snap.docs[0].id; editor.innerHTML = snap.docs[0].data().content || '';
+    async function deleteFolder(id) { if(confirm("Padam folder?")) { await foldersRef(state.currentFileId).doc(id).delete(); loadFolders(); } }
+
+    // --- LOGIK HISTORY KEKAL & BUKA NOTA ---
+    async function openFolder(id, title) {
+        state.currentFolderId = id;
+        const labelFolder = document.getElementById('labelFolder');
+        if(labelFolder) labelFolder.innerText = title;
+        showPage('note');
         
-        // KOD TAMBAHAN (INJECTED): Auto-Scroll ke penanda .last-read-mark bila buka nota
-        setTimeout(() => {
-          const mark = editor.querySelector('.last-read-mark');
-          if (mark) {
-            mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 300);
-      }
+        const nRef = notesRef(state.currentFileId, id);
+        const snap = await nRef.limit(1).get();
+        if (snap.empty) {
+            const n = await nRef.add({ content: '', history: {}, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+            state.currentNoteId = n.id;
+            if(editor) editor.innerHTML = '';
+        } else {
+            state.currentNoteId = snap.docs[0].id;
+            const docData = snap.docs[0].data();
+            if(editor) {
+                editor.innerHTML = docData.content || '';
+                state.lastSavedContent = docData.content || '';
+                
+                setTimeout(() => {
+                    const mark = editor.querySelector('.last-read-mark');
+                    if (mark) { mark.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+                }, 300);
+            }
+        }
+
+        nRef.doc(state.currentNoteId).onSnapshot(doc => {
+            const data = doc.data();
+            // Halang update if typing to prevent cursor jump
+            if (data && editor && editor.innerHTML !== data.content && !editor.contains(document.activeElement)) { 
+                editor.innerHTML = data.content || ''; 
+                state.lastSavedContent = data.content; 
+            }
+        });
     }
 
-    // --- TURBO AUTO-SAVE (2.5 SAAT) ---
-    const editorEl = document.getElementById('editor');
-    editorEl.oninput = () => {
-      clearTimeout(state.saveTimer);
-      state.saveTimer = setTimeout(async () => {
-        if(!state.noteId) return;
-        const content = editorEl.innerHTML;
-        const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
-        try {
-          await noteDoc.update({ content, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-          document.getElementById('saveStatus').textContent = 'Cloud synced';
-          setTimeout(() => { if(document.getElementById('saveStatus').textContent === 'Cloud synced') document.getElementById('saveStatus').textContent = ''; }, 1500);
-        } catch(e) { console.error("Auto-save error:", e); }
-      }, 2500);
+    // Auto Save
+    let saveTimer;
+    if(editor) {
+        editor.oninput = () => {
+            const sStatus = document.getElementById('saveStatus');
+            if(sStatus) sStatus.innerText = "Menaip...";
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(async () => {
+                if (editor.innerHTML === state.lastSavedContent) return;
+                if(sStatus) sStatus.innerText = "Menyimpan...";
+                
+                const docRef = notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
+                await docRef.update({ content: editor.innerHTML, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                state.lastSavedContent = editor.innerHTML;
+                
+                if(sStatus) {
+                    sStatus.innerText = "Cloud synced";
+                    setTimeout(() => { if(sStatus.innerText === 'Cloud synced') sStatus.innerText = ''; }, 1500);
+                }
+            }, 2500);
+        };
+    }
+
+    // --- PENYELESAIAN MASALAH HILANG HIGHLIGHT DI TELEFON ---
+    let savedSelection = null;
+    function saveSelection() {
+        const sel = window.getSelection();
+        if (sel.getRangeAt && sel.rangeCount > 0) { savedSelection = sel.getRangeAt(0); }
+    }
+    function restoreSelection() {
+        if (savedSelection) {
+            const sel = window.getSelection();
+            sel.removeAllRanges(); sel.addRange(savedSelection);
+        }
+    }
+    if(editor) {
+        editor.addEventListener('keyup', saveSelection);
+        editor.addEventListener('mouseup', saveSelection);
+        editor.addEventListener('touchend', saveSelection);
+        editor.addEventListener('focusout', saveSelection);
+    }
+    window.doCmd = function(c, v=null) {
+        restoreSelection(); document.execCommand(c, false, v);
+        if(editor) editor.focus(); saveSelection(); 
     };
 
-    // =========================================================================
-    // --- KOD TAMBAHAN: FUNGSI ON/OFF PENANDA BACAAN ---
-    // =========================================================================
-    window.isMarkingEnabled = true; // Secara lalai, fungsi tanda adalah ON
+    // --- FUNGSI JADUAL & BULLET ---
+    window.insertTable = function() {
+        saveSelection(); 
+        const rows = prompt("Berapa baris (rows)?", "3"); const cols = prompt("Berapa lajur (columns)?", "3");
+        if (rows && cols && !isNaN(rows) && !isNaN(cols)) {
+            let tableHTML = '<table style="width:100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #475569;"><tbody>';
+            for (let r = 0; r < parseInt(rows); r++) {
+                tableHTML += '<tr>';
+                for (let c = 0; c < parseInt(cols); c++) { tableHTML += `<td style="border: 1px solid #475569; padding: 8px; min-width: 50px;">Sel</td>`; }
+                tableHTML += '</tr>';
+            }
+            tableHTML += '</tbody></table><br/>';
+            restoreSelection(); document.execCommand('insertHTML', false, tableHTML);
+            if(editor) editor.focus(); saveSelection();
+        }
+    };
 
+    window.insertBulletLine = function(level) {
+        saveSelection(); 
+        let html = "—".repeat(level) + ' ';
+        restoreSelection(); document.execCommand('insertHTML', false, html);
+        if(editor) editor.focus(); saveSelection();
+    };
+
+    // --- FUNGSI ON/OFF PENANDA BACAAN & DOUBLE CLICK ---
+    window.isMarkingEnabled = true;
     const btnToggleMark = document.getElementById('btnToggleMark');
     if (btnToggleMark) {
         btnToggleMark.onclick = () => {
-            window.isMarkingEnabled = !window.isMarkingEnabled; // Tukar status ON/OFF
-            
+            window.isMarkingEnabled = !window.isMarkingEnabled;
             if (window.isMarkingEnabled) {
-                // Jika ON (Warna Hijau)
                 btnToggleMark.innerHTML = "📍 TANDA: ON";
                 btnToggleMark.className = "px-2 h-9 bg-green-600/20 text-green-400 border border-green-500/50 rounded text-[10px] font-bold ml-1 mt-1 sm:mt-0";
             } else {
-                // Jika OFF (Warna Merah)
                 btnToggleMark.innerHTML = "📍 TANDA: OFF";
                 btnToggleMark.className = "px-2 h-9 bg-red-600/20 text-red-400 border border-red-500/50 rounded text-[10px] font-bold ml-1 mt-1 sm:mt-0";
             }
         };
     }
-    // -------------------------------------------------------------------------
 
-    // --- KOD TAMBAHAN (INJECTED): FUNGSI DOUBLE CLICK UNTUK PENANDA BACAAN ---
-    editorEl.addEventListener('dblclick', () => {
-      // KOD TAMBAHAN: Semak jika fungsi penanda ditutup (OFF), hentikan tindakan
-      if (window.isMarkingEnabled === false) return;
+    if (editor) {
+        editor.addEventListener('dblclick', (e) => {
+            if (window.isMarkingEnabled === false) return;
+            const selection = window.getSelection();
+            if (!selection.rangeCount || selection.isCollapsed) return;
 
-      const selection = window.getSelection();
-      if (!selection.rangeCount || selection.isCollapsed) return;
+            const oldMark = editor.querySelector('.last-read-mark');
+            if (oldMark) {
+                const parent = oldMark.parentNode;
+                while(oldMark.firstChild) { parent.insertBefore(oldMark.firstChild, oldMark); }
+                parent.removeChild(oldMark);
+            }
 
-      // 1. Buang penanda lama jika ada
-      const oldMark = editorEl.querySelector('.last-read-mark');
-      if (oldMark) {
-        const parent = oldMark.parentNode;
-        while(oldMark.firstChild) {
-          parent.insertBefore(oldMark.firstChild, oldMark);
-        }
-        parent.removeChild(oldMark);
-      }
-
-      // 2. Tanda ayat/perkataan baru
-      const range = selection.getRangeAt(0);
-      const span = document.createElement('span');
-      span.className = 'last-read-mark';
-      range.surroundContents(span);
-      selection.removeAllRanges();
-
-      // 3. Wajib trigger event 'input' supaya auto-save berfungsi
-      editorEl.dispatchEvent(new Event('input'));
-    });
-
-    // --- KOD TAMBAHAN (INJECTED): FUNGSI TRANSLATE INLINE ---
-    document.getElementById('btnTranslate').onclick = () => {
-      const selection = window.getSelection();
-      if (!selection.rangeCount || selection.isCollapsed) {
-        alert("Sila highlight (pilih) teks terlebih dahulu untuk diterjemah.");
-        return;
-      }
-      
-      const text = selection.toString().trim();
-      const translation = prompt(`Masukkan maksud terjemahan untuk:\n"${text}"`);
-      
-      if (translation) {
-        const range = selection.getRangeAt(0);
-        const span = document.createElement('span');
-        span.className = 'has-translate text-purple-400 font-medium';
-        span.dataset.en = text;
-        span.dataset.ms = translation;
-        span.textContent = text; // Kekalkan paparan asal dahulu
-        
-        range.surroundContents(span);
-        selection.removeAllRanges();
-        
-        // Trigger auto-save
-        editorEl.dispatchEvent(new Event('input'));
-      }
-    };
-
-    // --- KOD TAMBAHAN (INJECTED): FUNGSI FLIP TRANSLATE ---
-    document.getElementById('btnFlipTranslate').onclick = () => {
-      const selection = window.getSelection();
-      let isInsideTranslate = false;
-      let targetSpan = null;
-      
-      // Kenal pasti jika cursor / highlight berada di dalam elemen span .has-translate
-      if (selection.rangeCount > 0) {
-        let node = selection.anchorNode;
-        while(node && node !== editorEl) {
-          if(node.nodeType === 1 && node.classList.contains('has-translate')) {
-            isInsideTranslate = true;
-            targetSpan = node;
-            break;
-          }
-          node = node.parentNode;
-        }
-      }
-
-      if (isInsideTranslate && targetSpan) {
-        // Flip SATU perkataan spesifik sahaja
-        targetSpan.textContent = (targetSpan.textContent === targetSpan.dataset.en) ? targetSpan.dataset.ms : targetSpan.dataset.en;
-      } else {
-        // Flip KESEMUA perkataan di dalam nota jika cursor berada di luar
-        const allTranslates = editorEl.querySelectorAll('.has-translate');
-        if(allTranslates.length === 0) return;
-        
-        const firstOne = allTranslates[0];
-        const isCurrentlyEn = (firstOne.textContent === firstOne.dataset.en);
-        
-        allTranslates.forEach(span => {
-          span.textContent = isCurrentlyEn ? span.dataset.ms : span.dataset.en;
+            const range = selection.getRangeAt(0);
+            const span = document.createElement('span');
+            span.className = 'last-read-mark';
+            range.surroundContents(span);
+            selection.removeAllRanges();
+            editor.dispatchEvent(new Event('input'));
         });
-      }
-      
-      // Trigger auto-save untuk simpan perubahan ke Firebase
-      editorEl.dispatchEvent(new Event('input'));
+    }
+
+    // --- FUNGSI TRANSLATE INLINE & FLIP ---
+    document.getElementById('btnTranslate').onclick = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount || selection.isCollapsed) return alert("Sila highlight (pilih) teks terlebih dahulu untuk diterjemah.");
+        const text = selection.toString().trim();
+        const translation = prompt(`Masukkan maksud terjemahan untuk:\n"${text}"`);
+        if (translation) {
+            const range = selection.getRangeAt(0);
+            const span = document.createElement('span');
+            span.className = 'has-translate text-purple-400 font-medium';
+            span.dataset.en = text; span.dataset.ms = translation; span.textContent = text; 
+            range.surroundContents(span); selection.removeAllRanges();
+            if(editor) editor.dispatchEvent(new Event('input'));
+        }
     };
 
-    // --- KOD TAMBAHAN (INJECTED): PEMBAIKAN FUNGSI CARIAN (SEARCH) ---
-    document.getElementById('searchFiles').addEventListener('input', function() {
-      const query = this.value.toLowerCase();
-      const filesList = document.querySelectorAll('#listFiles > div');
-      filesList.forEach(el => {
-        const title = el.querySelector('button').textContent.toLowerCase();
-        el.style.display = title.includes(query) ? 'flex' : 'none'; // separa-tepat (includes)
-      });
-    });
-
-    document.getElementById('searchFolders').addEventListener('input', function() {
-      const query = this.value.toLowerCase();
-      const foldersList = document.querySelectorAll('#listFolders > div');
-      foldersList.forEach(el => {
-        const title = el.querySelector('button').textContent.toLowerCase();
-        el.style.display = title.includes(query) ? 'flex' : 'none'; // separa-tepat (includes)
-      });
-    });
-    // -----------------------------------------------------------
-
-    // --- PENYELESAIAN MASALAH HILANG HIGHLIGHT DI TELEFON ---
-    let savedSelection = null;
-    
-    function saveSelection() {
-      const sel = window.getSelection();
-      if (sel.getRangeAt && sel.rangeCount > 0) {
-        savedSelection = sel.getRangeAt(0);
-      }
-    }
-
-    function restoreSelection() {
-      if (savedSelection) {
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(savedSelection);
-      }
-    }
-
-    // Sentiasa simpan highlight terkini bila kita sentuh/menaip dalam editor
-    editorEl.addEventListener('keyup', saveSelection);
-    editorEl.addEventListener('mouseup', saveSelection);
-    editorEl.addEventListener('touchend', saveSelection);
-    editorEl.addEventListener('focusout', saveSelection);
-
-    // Fungsi doCmd yang dikemaskini untuk cover phone
-    function doCmd(c, v=null) {
-      restoreSelection(); // Tampal balik highlight yang tersimpan
-      document.execCommand(c, false, v);
-      editorEl.focus();
-      saveSelection(); // Simpan balik state baru lepas tukar
-    }
-    // --------------------------------------------------------
-
-    // --- FUNGSI JADUAL YANG DIBAIKI (DENGAN MEMORI) ---
-    function insertTable() {
-      saveSelection(); 
-      
-      const rows = prompt("Berapa baris (rows) yang anda perlukan?", "3");
-      const cols = prompt("Berapa lajur (columns) yang anda perlukan?", "3");
-      
-      if (rows && cols && !isNaN(rows) && !isNaN(cols)) {
-        let tableHTML = '<table style="width:100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #475569;"><tbody>';
-        for (let r = 0; r < parseInt(rows); r++) {
-          tableHTML += '<tr>';
-          for (let c = 0; c < parseInt(cols); c++) {
-            tableHTML += `<td style="border: 1px solid #475569; padding: 8px; min-width: 50px;">Sel</td>`;
-          }
-          tableHTML += '</tr>';
+    document.getElementById('btnFlipTranslate').onclick = () => {
+        const selection = window.getSelection();
+        let isInsideTranslate = false; let targetSpan = null;
+        if (selection.rangeCount > 0 && editor) {
+            let node = selection.anchorNode;
+            while(node && node !== editor) {
+                if(node.nodeType === 1 && node.classList.contains('has-translate')) { isInsideTranslate = true; targetSpan = node; break; }
+                node = node.parentNode;
+            }
         }
-        tableHTML += '</tbody></table><br/>';
-        
-        restoreSelection(); 
-        document.execCommand('insertHTML', false, tableHTML);
-        editorEl.focus();
-        saveSelection();
-      }
+        if (isInsideTranslate && targetSpan) {
+            targetSpan.textContent = (targetSpan.textContent === targetSpan.dataset.en) ? targetSpan.dataset.ms : targetSpan.dataset.en;
+        } else if (editor) {
+            const allTranslates = editor.querySelectorAll('.has-translate');
+            if(allTranslates.length === 0) return;
+            const firstOne = allTranslates[0];
+            const isCurrentlyEn = (firstOne.textContent === firstOne.dataset.en);
+            allTranslates.forEach(span => { span.textContent = isCurrentlyEn ? span.dataset.ms : span.dataset.en; });
+        }
+        if(editor) editor.dispatchEvent(new Event('input'));
+    };
+
+    // --- PEMBAIKAN FUNGSI CARIAN (SEARCH) ---
+    const searchFilesInput = document.getElementById('searchFiles');
+    if (searchFilesInput) {
+        searchFilesInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            const list = document.getElementById('listFiles');
+            if (list) {
+                Array.from(list.children).forEach(el => {
+                    const textContent = el.innerText.toLowerCase();
+                    el.style.display = textContent.includes(query) ? '' : 'none'; 
+                });
+            }
+        });
     }
 
-    // --- FUNGSI BULLET HURAIAN BERSAMBUNG (DIBETULKAN TANPA WARNA) ---
-    function insertBulletLine(level) {
-      saveSelection(); 
-      
-      // Gunakan simbol "Em Dash" (—) yang akan bersambung rapat secara automatik
-      let dash = "—"; 
-      let html = dash.repeat(level) + ' ';
-      
-      restoreSelection(); 
-      document.execCommand('insertHTML', false, html);
-      editorEl.focus();
-      saveSelection();
+    const searchFoldersInput = document.getElementById('searchFolders');
+    if (searchFoldersInput) {
+        searchFoldersInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            const list = document.getElementById('listFolders');
+            if (list) {
+                Array.from(list.children).forEach(el => {
+                    const textContent = el.innerText.toLowerCase();
+                    el.style.display = textContent.includes(query) ? '' : 'none';
+                });
+            }
+        });
     }
 
-    // --- MANUAL SEJARAH (OVERWRITE - HANYA SIMPAN SATU TERAKHIR) ---
+    // --- UPLOAD GAMBAR DALAM EDITOR ---
+    window.handleImageUpload = async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const loader = document.getElementById('saveLoader');
+        const bar = document.getElementById('progressBar');
+        const status = document.getElementById('saveStatus');
+
+        if(loader) loader.classList.remove('hidden');
+        if(bar) bar.style.width = '30%';
+        if(status) status.innerText = 'Memuat naik gambar...';
+
+        try {
+            const userId = (state.user && state.user.uid) ? state.user.uid : (state.uid || 'anonymous');
+            const fileRef = storage.ref(`uploads/${userId}/${Date.now()}_${file.name}`);
+            await fileRef.put(file);
+            const url = await fileRef.getDownloadURL();
+
+            if(bar) bar.style.width = '100%';
+            if(status) status.innerText = 'Berjaya dimuat naik!';
+
+            restoreSelection();
+            let mediaHTML = `&nbsp;<span contenteditable="false" style="display:inline-block; max-width:100%; user-select:all;"><img src="${url}" alt="gambar nota" style="max-width: 100%; border-radius: 8px; margin: 5px 0; border: 1px solid #334155;" /></span>&nbsp;`;
+            
+            document.execCommand('insertHTML', false, mediaHTML);
+            if(editor) editor.focus();
+            saveSelection();
+            if(editor) editor.dispatchEvent(new Event('input')); 
+
+            setTimeout(() => {
+                if(loader) loader.classList.add('hidden');
+                if(status) status.innerText = '';
+            }, 1500);
+
+        } catch (e) {
+            alert("Ralat muat naik gambar.");
+            if(loader) loader.classList.add('hidden');
+            if(status) status.innerText = 'Gagal';
+        }
+        event.target.value = ""; 
+    };
+
+    // =========================================================================
+    // --- KOD LOGIK HALAMAN AUDIO (AUDIO PAGE) ANAK ---
+    // =========================================================================
+    
+    // Rujukan ke Pangkalan Data (Sub-collection audios di bawah nota)
+    const audiosRef = () => notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId).collection('audios');
+
+    const btnOpenAudioPage = document.getElementById('btnOpenAudioPage');
+    if (btnOpenAudioPage) {
+        btnOpenAudioPage.onclick = () => {
+            if (!state.currentNoteId) {
+                alert("Sila taip sekurang-kurangnya satu huruf dalam nota terlebih dahulu sebelum membuka halaman audio.");
+                return;
+            }
+            showPage('audioPage');
+            loadAudios();
+        };
+    }
+
+    const btnBackToNoteFromAudio = document.getElementById('btnBackToNoteFromAudio');
+    if (btnBackToNoteFromAudio) {
+        btnBackToNoteFromAudio.onclick = () => {
+            showPage('note');
+        };
+    }
+
+    // Fungsi Papar Audio Bersusun
+    async function loadAudios() {
+        const snap = await audiosRef().get();
+        const list = document.getElementById('listAudioPage');
+        if (!list) return;
+        list.innerHTML = '';
+
+        let items = [];
+        snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+
+        // Susunan Teori: Nombor dulu, kemudian Abjad A-Z
+        items.sort((a, b) => {
+            let titleA = (a.title || "").toLowerCase();
+            let titleB = (b.title || "").toLowerCase();
+            return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = "bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col gap-3 shadow-lg";
+            
+            const header = document.createElement('div');
+            header.className = "flex justify-between items-center gap-2 border-b border-slate-700 pb-2";
+            header.innerHTML = `<span class="font-bold flex-1 text-left text-sm text-emerald-400 break-text">${item.title || 'Audio Fail'}</span>
+              <div class="flex gap-2">
+                <button class="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs edit-btn transition" title="Tukar Nama">✏️ Edit</button>
+                <button class="px-3 py-1 bg-red-900/40 hover:bg-red-800 text-red-400 rounded text-xs del-btn transition" title="Padam">🗑️ Padam</button>
+              </div>`;
+            
+            header.querySelector('.edit-btn').onclick = async () => {
+                const newTitle = prompt('Tukar Nama Audio:', item.title);
+                if(newTitle && newTitle.trim() !== "" && newTitle !== item.title) {
+                    await audiosRef().doc(item.id).update({title: newTitle.trim()});
+                    loadAudios(); // Segarkan senarai
+                }
+            };
+            
+            header.querySelector('.del-btn').onclick = async () => {
+                if(confirm(`Padam audio "${item.title}" secara kekal?`)) {
+                    await audiosRef().doc(item.id).delete();
+                    loadAudios();
+                }
+            };
+
+            const player = document.createElement('audio');
+            player.controls = true;
+            player.src = item.url;
+            player.className = "w-full outline-none h-10";
+
+            div.appendChild(header);
+            div.appendChild(player);
+            list.appendChild(div);
+        });
+    }
+
+    // Fungsi Muat Naik Audio Baru
+    window.handleAudioPageUpload = async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const loader = document.getElementById('saveLoaderAudio');
+        const bar = document.getElementById('progressBarAudio');
+        const status = document.getElementById('audioUploadStatus');
+
+        if(loader) loader.classList.remove('hidden');
+        if(bar) bar.style.width = '30%';
+        if(status) status.innerText = 'Memuat naik audio... Sila tunggu.';
+
+        try {
+            const userId = (state.user && state.user.uid) ? state.user.uid : (state.uid || 'anonymous');
+            const fileRef = storage.ref(`uploads/${userId}/${Date.now()}_${file.name}`);
+            await fileRef.put(file);
+            const url = await fileRef.getDownloadURL();
+
+            if(bar) bar.style.width = '100%';
+            if(status) status.innerText = 'Menyimpan ke pangkalan data...';
+
+            let defaultTitle = file.name.split('.').slice(0, -1).join('.') || "Audio Baru";
+            
+            await audiosRef().add({
+                title: defaultTitle,
+                url: url,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            if(status) status.innerText = 'Berjaya dimuat naik!';
+            loadAudios(); 
+
+            setTimeout(() => {
+                if(loader) loader.classList.add('hidden');
+                if(status) status.innerText = '';
+            }, 2000);
+
+        } catch (e) {
+            console.error(e);
+            alert("Ralat muat naik audio: Pastikan Firebase Storage Rules anda membenarkan 'write'.");
+            if(loader) loader.classList.add('hidden');
+            if(status) status.innerText = 'Gagal muat naik';
+        }
+        event.target.value = ""; 
+    };
+
+    // --- MANUAL SEJARAH ---
     document.getElementById('btnManualSave').onclick = async () => {
-      const content = editorEl.innerHTML;
-      if(!content || !state.noteId) return alert("Nota kosong.");
-      
-      const loader = document.getElementById('saveLoader');
-      const bar = document.getElementById('progressBar');
-      loader.classList.remove('hidden');
-      bar.style.width = '0%';
-      setTimeout(() => bar.style.width = '60%', 200);
+        const content = editor.innerHTML;
+        if(!content || !state.noteId) return alert("Nota kosong.");
+        const loader = document.getElementById('saveLoader');
+        const bar = document.getElementById('progressBar');
+        loader.classList.remove('hidden'); bar.style.width = '0%';
+        setTimeout(() => bar.style.width = '60%', 200);
 
-      try {
-        const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
-        
-        const oldHistory = await noteDoc.collection('history_manual').get();
-        const batch = db.batch();
-        oldHistory.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
+        try {
+            const noteDoc = notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
+            const oldHistory = await noteDoc.collection('history_manual').get();
+            const batch = db.batch();
+            oldHistory.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
 
-        await noteDoc.collection('history_manual').add({ content, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
-        
-        bar.style.width = '100%';
-        setTimeout(() => {
-          loader.classList.add('hidden');
-          document.getElementById('saveStatus').textContent = 'Sejarah Diperbaharui!';
-          setTimeout(() => document.getElementById('saveStatus').textContent = '', 2000);
-        }, 800);
-      } catch (e) {
-        loader.classList.add('hidden');
-        alert('Gagal simpan: ' + e.message);
-      }
+            await noteDoc.collection('history_manual').add({ content, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+            
+            bar.style.width = '100%';
+            setTimeout(() => {
+                loader.classList.add('hidden');
+                const s = document.getElementById('saveStatus');
+                s.textContent = 'Sejarah Diperbaharui!';
+                setTimeout(() => s.textContent = '', 2000);
+            }, 800);
+        } catch (e) { loader.classList.add('hidden'); alert('Gagal simpan.'); }
     };
 
     async function toggleHistory(show) {
-      const modal = document.getElementById('modalHistory');
-      if (!show) return modal.classList.add('hidden');
-      modal.classList.remove('hidden');
-      const list = document.getElementById('historyList');
-      list.innerHTML = '<p class="text-xs animate-pulse">Menarik data...</p>';
+        const modal = document.getElementById('modalHistory');
+        if (!show) return modal.classList.add('hidden');
+        modal.classList.remove('hidden');
+        const list = document.getElementById('historyList');
+        list.innerHTML = '<p class="text-xs animate-pulse">Menarik data...</p>';
 
-      const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
-      const snap = await noteDoc.collection('history_manual').orderBy('timestamp', 'desc').limit(1).get();
+        const snap = await notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId).collection('history_manual').orderBy('timestamp', 'desc').limit(1).get();
 
-      list.innerHTML = '';
-      if(snap.empty) return list.innerHTML = '<p class="text-xs opacity-50 p-10">Tiada sejarah manual disimpan.</p>';
+        list.innerHTML = '';
+        if(snap.empty) return list.innerHTML = '<p class="text-xs opacity-50 p-10">Tiada sejarah manual disimpan.</p>';
 
-      snap.forEach(doc => {
-        const d = doc.data();
-        const btn = document.createElement('button');
-        btn.className = `w-full p-4 rounded-xl border border-indigo-900 bg-indigo-900/10 text-left`;
-        btn.innerHTML = `<span class="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Snapshot Terakhir</span><br><span class="text-xs">${d.timestamp?.toDate().toLocaleString() || 'Baru'}</span>`;
-        btn.onclick = () => { if(confirm(`Pulihkan versi ini?`)) { editorEl.innerHTML = d.content; modal.classList.add('hidden'); editorEl.dispatchEvent(new Event('input')); }};
-        list.appendChild(btn);
-      });
+        snap.forEach(doc => {
+            const d = doc.data();
+            const btn = document.createElement('button');
+            btn.className = `w-full p-4 rounded-xl border border-indigo-900 bg-indigo-900/10 text-left`;
+            btn.innerHTML = `<span class="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Snapshot Terakhir</span><br><span class="text-xs">${d.timestamp?.toDate().toLocaleString() || 'Baru'}</span>`;
+            btn.onclick = () => { if(confirm(`Pulihkan versi ini?`)) { editor.innerHTML = d.content; modal.classList.add('hidden'); editor.dispatchEvent(new Event('input')); }};
+            list.appendChild(btn);
+        });
     }
 
-    // --- TOOLS ---
-    document.getElementById('btnHistory').onclick = () => toggleHistory(true);
-    document.getElementById('btnBackToFolders').onclick = () => showView('folders');
+    // --- OTHER UI BINDINGS ---
+    const btnHistory = document.getElementById('btnHistory');
+    if(btnHistory) btnHistory.onclick = () => toggleHistory(true);
     
-    async function editTitle(p,id,o,cb){ const n = prompt('Tukar Nama:',o); if(n && n!==o){ await db.collection('users').doc(state.uid).collection(p).doc(id).update({title:n}); cb(); } }
-    async function deleteItem(p,id,cb){ if(confirm('Padam item ini secara kekal?')){ await db.collection('users').doc(state.uid).collection(p).doc(id).delete(); cb(); } }
-    
-    document.getElementById('btnAddFile').onclick = async () => { const t = prompt('Nama Fail Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }};
-    document.getElementById('btnAddFolder').onclick = async () => { const t = prompt('Nama Folder Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }};
+    const btnBackToFolders = document.getElementById('btnBackToFolders');
+    if(btnBackToFolders) btnBackToFolders.onclick = () => showPage('folders');
 
-  </script> <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js");
-    }
+    const btnAddFile = document.getElementById('btnAddFile');
+    if(btnAddFile) btnAddFile.onclick = async () => { const t = prompt('Nama Fail Baru?'); if(t) { await filesRef().add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }};
+    
+    const btnAddFolder = document.getElementById('btnAddFolder');
+    if(btnAddFolder) btnAddFolder.onclick = async () => { const t = prompt('Nama Folder Baru?'); if(t) { await foldersRef(state.currentFileId).add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }};
+
+  </script>
+  <script>
+    if ("serviceWorker" in navigator) { navigator.serviceWorker.register("service-worker.js"); }
   </script>
 </body>
 </html>
