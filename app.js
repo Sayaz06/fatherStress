@@ -478,7 +478,7 @@ if (searchFoldersInput) {
 // ------------------------------------------------------------------------------
 
 // =========================================================================
-// --- KOD TAMBAHAN BARU: FUNGSI UPLOAD GAMBAR & AUDIO ---
+// --- KOD TAMBAHAN BARU: FUNGSI UPLOAD GAMBAR & AUDIO YANG DIBUNGKUS ---
 // =========================================================================
 window.handleMediaUpload = async function(event, type) {
     const file = event.target.files[0];
@@ -505,10 +505,13 @@ window.handleMediaUpload = async function(event, type) {
 
         restoreSelection();
         let mediaHTML = '';
+        
+        // KOD YANG DIBAIKI: Saya bungkus dalam span (contenteditable="false") & letak &nbsp;
+        // Ini memastikan audio/gambar berkelakuan seperti "satu huruf teks" yang mudah di-highlight dan dialih
         if (type === 'image') {
-            mediaHTML = `<img src="${url}" alt="gambar nota" style="max-width: 100%; border-radius: 8px; margin: 10px 0; border: 1px solid #334155;" /><br/>`;
+            mediaHTML = `&nbsp;<span contenteditable="false" style="display:inline-block; max-width:100%; user-select:all;"><img src="${url}" alt="gambar nota" style="max-width: 100%; border-radius: 8px; margin: 5px 0; border: 1px solid #334155;" /></span>&nbsp;`;
         } else if (type === 'audio') {
-            mediaHTML = `<audio controls src="${url}" style="width: 100%; margin: 10px 0; border-radius: 8px; outline: none;"></audio><br/>`;
+            mediaHTML = `&nbsp;<span contenteditable="false" style="display:inline-block; width:100%; max-width:400px; user-select:all;"><audio controls src="${url}" style="width: 100%; margin: 5px 0; border-radius: 8px; outline: none;"></audio></span>&nbsp;`;
         }
 
         // Masukkan elemen media ke dalam editor
