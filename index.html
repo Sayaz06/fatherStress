@@ -160,8 +160,8 @@
         
         <button title="Tambah Jadual" class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold text-lg" onclick="insertTable()">▦</button>
 
-        <button title="Tambah Gambar" class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold text-lg" onclick="document.getElementById('file-image-input').click()">🖼️</button>
-        <button title="Tambah Audio" class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold text-lg" onclick="document.getElementById('file-audio-input').click()">🎵</button>
+        <button title="Tambah Gambar" class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold text-lg" onmousedown="saveSelection()" ontouchstart="saveSelection()" onclick="document.getElementById('file-image-input').click()">🖼️</button>
+        <button title="Tambah Audio" class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold text-lg" onmousedown="saveSelection()" ontouchstart="saveSelection()" onclick="document.getElementById('file-audio-input').click()">🎵</button>
         <input type="file" id="file-image-input" accept="image/*" class="hidden" onchange="handleMediaUpload(event, 'image')">
         <input type="file" id="file-audio-input" accept="audio/*" class="hidden" onchange="handleMediaUpload(event, 'audio')">
         <button title="Huraian Tahap 1" class="px-2 h-9 flex items-center justify-center bg-slate-700 rounded text-white font-bold text-xs ml-1" onclick="insertBulletLine(1)">-</button>
@@ -533,7 +533,7 @@
       saveSelection();
     }
 
-    // --- KOD TAMBAHAN: FUNGSI UPLOAD GAMBAR & AUDIO ---
+    // --- KOD TAMBAHAN: FUNGSI UPLOAD GAMBAR & AUDIO YANG DIBUNGKUS (WRAPPED) ---
     async function handleMediaUpload(event, type) {
       const file = event.target.files[0];
       if (!file) return;
@@ -547,7 +547,7 @@
       status.textContent = 'Memuat naik...';
 
       try {
-        // Upload ke Firebase Storage (folder: uploads/UserID/timestamp_filename)
+        // Upload ke Firebase Storage
         const fileRef = storage.ref(`uploads/${state.uid}/${Date.now()}_${file.name}`);
         await fileRef.put(file);
         const url = await fileRef.getDownloadURL();
@@ -557,13 +557,16 @@
 
         restoreSelection();
         let mediaHTML = '';
+        
+        // KOD YANG DIBAIKI: Saya bungkus dalam span (contenteditable="false") & letak &nbsp;
+        // Ini memastikan audio/gambar berkelakuan seperti "satu huruf teks" yang mudah di-highlight dan dialih
         if (type === 'image') {
-          mediaHTML = `<img src="${url}" alt="gambar nota" /><br/>`;
+          mediaHTML = `&nbsp;<span contenteditable="false" style="display:inline-block; max-width:100%; user-select:all;"><img src="${url}" alt="gambar nota" style="max-width: 100%; border-radius: 8px; margin: 5px 0; border: 1px solid #334155;" /></span>&nbsp;`;
         } else if (type === 'audio') {
-          mediaHTML = `<audio controls src="${url}"></audio><br/>`;
+          mediaHTML = `&nbsp;<span contenteditable="false" style="display:inline-block; width:100%; max-width:400px; user-select:all;"><audio controls src="${url}" style="width: 100%; margin: 5px 0; border-radius: 8px; outline: none;"></audio></span>&nbsp;`;
         }
 
-        // Masukkan elemen media ke dalam editor
+        // Masukkan elemen media ke dalam editor mengikut posisi asal cursor
         document.execCommand('insertHTML', false, mediaHTML);
         editorEl.focus();
         saveSelection();
