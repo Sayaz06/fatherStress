@@ -10,6 +10,8 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+// KOD TAMBAHAN: Initialize Firebase Storage
+const storage = firebase.storage();
 
 let state = { user: null, currentFileId: null, currentFolderId: null, currentNoteId: null, lastSavedContent: "" };
 
@@ -474,3 +476,62 @@ if (searchFoldersInput) {
     });
 }
 // ------------------------------------------------------------------------------
+
+// =========================================================================
+// --- KOD TAMBAHAN BARU: FUNGSI UPLOAD GAMBAR & AUDIO ---
+// =========================================================================
+window.handleMediaUpload = async function(event, type) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const loader = document.getElementById('saveLoader');
+    const bar = document.getElementById('progressBar');
+    const status = document.getElementById('saveStatus');
+
+    if(loader) loader.classList.remove('hidden');
+    if(bar) bar.style.width = '30%';
+    if(status) status.innerText = 'Memuat naik...';
+
+    try {
+        // Upload ke Firebase Storage (folder: uploads/UserID/timestamp_filename)
+        // Bergantung pada logik yang awak pakai (state.user.uid atau state.uid), saya letak sokongan untuk dua-dua
+        const userId = (state.user && state.user.uid) ? state.user.uid : (state.uid || 'anonymous');
+        const fileRef = storage.ref(`uploads/${userId}/${Date.now()}_${file.name}`);
+        await fileRef.put(file);
+        const url = await fileRef.getDownloadURL();
+
+        if(bar) bar.style.width = '100%';
+        if(status) status.innerText = 'Berjaya dimuat naik!';
+
+        restoreSelection();
+        let mediaHTML = '';
+        if (type === 'image') {
+            mediaHTML = `<img src="${url}" alt="gambar nota" style="max-width: 100%; border-radius: 8px; margin: 10px 0; border: 1px solid #334155;" /><br/>`;
+        } else if (type === 'audio') {
+            mediaHTML = `<audio controls src="${url}" style="width: 100%; margin: 10px 0; border-radius: 8px; outline: none;"></audio><br/>`;
+        }
+
+        // Masukkan elemen media ke dalam editor
+        document.execCommand('insertHTML', false, mediaHTML);
+        if(editor) editor.focus();
+        saveSelection();
+        
+        // Wajib trigger event 'input' supaya Auto-Save pangkalan data menyimpan media ini
+        if(editor) editor.dispatchEvent(new Event('input')); 
+
+        setTimeout(() => {
+            if(loader) loader.classList.add('hidden');
+            if(status) status.innerText = '';
+        }, 1500);
+
+    } catch (e) {
+        console.error("Muat naik gagal:", e);
+        alert("Ralat muat naik: Pastikan Firebase Storage Rules anda membenarkan 'write'.");
+        if(loader) loader.classList.add('hidden');
+        if(status) status.innerText = 'Gagal muat naik';
+    }
+    
+    // Reset input supaya fail yang sama boleh dipilih lagi nanti
+    event.target.value = ""; 
+};
+// -------------------------------------------------------------------------
