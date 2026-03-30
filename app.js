@@ -336,7 +336,10 @@ window.insertBulletLine = function(level) {
 
 // --- KOD TAMBAHAN (INJECTED): FUNGSI DOUBLE CLICK UNTUK PENANDA BACAAN (KLIK 2-KALI PANTAS) ---
 if (editor) {
-    editor.addEventListener('dblclick', () => {
+    editor.addEventListener('dblclick', (e) => {
+        // Pastikan double click bukan pada butang audio
+        if (e.target && e.target.classList.contains('audio-inline-btn')) return;
+
         // KOD TAMBAHAN: Semak jika fungsi penanda ditutup (OFF), hentikan tindakan
         if (window.isMarkingEnabled === false) return;
 
@@ -478,7 +481,7 @@ if (searchFoldersInput) {
 // ------------------------------------------------------------------------------
 
 // =========================================================================
-// --- KOD TAMBAHAN BARU: FUNGSI UPLOAD GAMBAR & AUDIO YANG DIBUNGKUS ---
+// --- KOD TAMBAHAN BARU: FUNGSI UPLOAD GAMBAR & BUTANG AUDIO ---
 // =========================================================================
 window.handleMediaUpload = async function(event, type) {
     const file = event.target.files[0];
@@ -494,7 +497,6 @@ window.handleMediaUpload = async function(event, type) {
 
     try {
         // Upload ke Firebase Storage (folder: uploads/UserID/timestamp_filename)
-        // Bergantung pada logik yang awak pakai (state.user.uid atau state.uid), saya letak sokongan untuk dua-dua
         const userId = (state.user && state.user.uid) ? state.user.uid : (state.uid || 'anonymous');
         const fileRef = storage.ref(`uploads/${userId}/${Date.now()}_${file.name}`);
         await fileRef.put(file);
@@ -506,12 +508,11 @@ window.handleMediaUpload = async function(event, type) {
         restoreSelection();
         let mediaHTML = '';
         
-        // KOD YANG DIBAIKI: Saya bungkus dalam span (contenteditable="false") & letak &nbsp;
-        // Ini memastikan audio/gambar berkelakuan seperti "satu huruf teks" yang mudah di-highlight dan dialih
         if (type === 'image') {
             mediaHTML = `&nbsp;<span contenteditable="false" style="display:inline-block; max-width:100%; user-select:all;"><img src="${url}" alt="gambar nota" style="max-width: 100%; border-radius: 8px; margin: 5px 0; border: 1px solid #334155;" /></span>&nbsp;`;
         } else if (type === 'audio') {
-            mediaHTML = `&nbsp;<span contenteditable="false" style="display:inline-block; width:100%; max-width:400px; user-select:all;"><audio controls src="${url}" style="width: 100%; margin: 5px 0; border-radius: 8px; outline: none;"></audio></span>&nbsp;`;
+            // IDEA BARU: Insert Butang Audio di hujung ayat
+            mediaHTML = `&nbsp;<button contenteditable="false" class="audio-inline-btn" data-audiourl="${url}">🔊 Mainkan Audio</button>&nbsp;`;
         }
 
         // Masukkan elemen media ke dalam editor
@@ -537,22 +538,39 @@ window.handleMediaUpload = async function(event, type) {
     // Reset input supaya fail yang sama boleh dipilih lagi nanti
     event.target.value = ""; 
 };
-// -------------------------------------------------------------------------
 
-// =========================================================================
-// --- KOD PENYELAMAT: KEMBALIKAN AUDIO HALIMUNAN ---
-// =========================================================================
-const editorPenyelamat = document.getElementById('editor');
-if (editorPenyelamat) {
-    // Gunakan addEventListener supaya ia tidak mengganggu fungsi oninput Auto-Save asal awak
-    editorPenyelamat.addEventListener('input', function() {
-        const semuaAudio = editorPenyelamat.querySelectorAll('audio');
-        semuaAudio.forEach(audio => {
-            // Jika browser buang 'controls' lepas paste, kita letak balik!
-            if (!audio.hasAttribute('controls')) {
-                audio.setAttribute('controls', 'controls');
+// --- KOD TAMBAHAN: FUNGSI KLIK BUTANG AUDIO & PEMAIN TERAPUNG ---
+if (editor) {
+    editor.addEventListener('click', function(e) {
+        // Semak jika yang diklik adalah butang audio kita
+        if (e.target && e.target.classList.contains('audio-inline-btn')) {
+            // Halang tingkah laku default supaya cursor tak lari sangat
+            e.preventDefault();
+            
+            const audioUrl = e.target.getAttribute('data-audiourl');
+            if (audioUrl) {
+                const floatingBox = document.getElementById('floating-audio-box');
+                const floatingPlayer = document.getElementById('floating-audio-player');
+                
+                if (floatingBox && floatingPlayer) {
+                    floatingPlayer.src = audioUrl;
+                    floatingBox.classList.remove('hidden');
+                    // Cuba mainkan terus audio tersebut
+                    floatingPlayer.play().catch(err => console.log("Auto-play dihalang oleh browser, tekan play secara manual:", err));
+                }
             }
-        });
+        }
     });
 }
+
+// Fungsi untuk tutup Kotak Audio Terapung
+window.closeAudioBox = function() {
+    const floatingBox = document.getElementById('floating-audio-box');
+    const floatingPlayer = document.getElementById('floating-audio-player');
+    if (floatingBox && floatingPlayer) {
+        floatingPlayer.pause();
+        floatingPlayer.src = ""; // Kosongkan sumber supaya berhenti sepenuhnya
+        floatingBox.classList.add('hidden');
+    }
+};
 // =========================================================================
