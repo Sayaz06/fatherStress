@@ -657,6 +657,24 @@
     document.getElementById('btnAddFile').onclick = async () => { const t = prompt('Nama Fail Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }};
     document.getElementById('btnAddFolder').onclick = async () => { const t = prompt('Nama Folder Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }};
 
+    // =========================================================================
+    // --- KOD PENYELAMAT: KEMBALIKAN AUDIO HALIMUNAN ---
+    // =========================================================================
+    const editorPenyelamat = document.getElementById('editor');
+    if (editorPenyelamat) {
+        // Gunakan addEventListener supaya ia tidak mengganggu fungsi oninput Auto-Save asal awak
+        editorPenyelamat.addEventListener('input', function() {
+            const semuaAudio = editorPenyelamat.querySelectorAll('audio');
+            semuaAudio.forEach(audio => {
+                // Jika browser buang 'controls' lepas paste, kita letak balik!
+                if (!audio.hasAttribute('controls')) {
+                    audio.setAttribute('controls', 'controls');
+                }
+            });
+        });
+    }
+    // =========================================================================
+
   </script> <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("service-worker.js");
