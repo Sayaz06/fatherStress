@@ -338,7 +338,7 @@ window.insertBulletLine = function(level) {
 if (editor) {
     editor.addEventListener('dblclick', (e) => {
         // Pastikan double click bukan pada butang audio
-        if (e.target && e.target.classList.contains('audio-inline-btn')) return;
+        if (e.target && e.target.closest('.audio-inline-btn')) return;
 
         // KOD TAMBAHAN: Semak jika fungsi penanda ditutup (OFF), hentikan tindakan
         if (window.isMarkingEnabled === false) return;
@@ -539,24 +539,26 @@ window.handleMediaUpload = async function(event, type) {
     event.target.value = ""; 
 };
 
-// --- KOD TAMBAHAN: FUNGSI KLIK BUTANG AUDIO & PEMAIN TERAPUNG ---
+// --- KOD TAMBAHAN YANG DIBAIKI: FUNGSI KLIK BUTANG AUDIO & PEMAIN TERAPUNG ---
 if (editor) {
+    // Menggunakan .closest() supaya sentiasa tepat kena pada butang, walaupun terkena text
     editor.addEventListener('click', function(e) {
-        // Semak jika yang diklik adalah butang audio kita
-        if (e.target && e.target.classList.contains('audio-inline-btn')) {
-            // Halang tingkah laku default supaya cursor tak lari sangat
-            e.preventDefault();
-            
-            const audioUrl = e.target.getAttribute('data-audiourl');
+        const btn = e.target.closest('.audio-inline-btn');
+        if (btn) {
+            const audioUrl = btn.getAttribute('data-audiourl');
             if (audioUrl) {
                 const floatingBox = document.getElementById('floating-audio-box');
                 const floatingPlayer = document.getElementById('floating-audio-player');
                 
                 if (floatingBox && floatingPlayer) {
-                    floatingPlayer.src = audioUrl;
                     floatingBox.classList.remove('hidden');
-                    // Cuba mainkan terus audio tersebut
-                    floatingPlayer.play().catch(err => console.log("Auto-play dihalang oleh browser, tekan play secara manual:", err));
+                    
+                    // Mainkan jika src berbeza, elakkan reset jika tengah main
+                    if (floatingPlayer.getAttribute('src') !== audioUrl) {
+                        floatingPlayer.src = audioUrl;
+                        // Cuba play secara automatik
+                        floatingPlayer.play().catch(err => console.log("Tekan play secara manual diperlukan oleh browser.", err));
+                    }
                 }
             }
         }
@@ -569,7 +571,7 @@ window.closeAudioBox = function() {
     const floatingPlayer = document.getElementById('floating-audio-player');
     if (floatingBox && floatingPlayer) {
         floatingPlayer.pause();
-        floatingPlayer.src = ""; // Kosongkan sumber supaya berhenti sepenuhnya
+        floatingPlayer.removeAttribute('src'); // Kosongkan sumber supaya berhenti sepenuhnya
         floatingBox.classList.add('hidden');
     }
 };
