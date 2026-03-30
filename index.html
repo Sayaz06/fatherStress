@@ -12,6 +12,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
   <style>
     :root { --bg: #020617; }
     body { background-color: var(--bg); color: #e5e7eb; font-family: system-ui, sans-serif; overflow-x: hidden; }
@@ -83,6 +84,10 @@
       transform: scale(0.9); 
       background-color: #4338ca; 
     }
+
+    /* KOD TAMBAHAN: Gaya untuk gambar & audio di dalam editor */
+    .editor img { max-width: 100%; border-radius: 8px; margin: 10px 0; border: 1px solid #334155; }
+    .editor audio { width: 100%; margin: 10px 0; border-radius: 8px; outline: none; }
   </style>
 </head>
 <body class="min-h-screen w-full">
@@ -155,6 +160,10 @@
         
         <button title="Tambah Jadual" class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold text-lg" onclick="insertTable()">▦</button>
 
+        <button title="Tambah Gambar" class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold text-lg" onclick="document.getElementById('file-image-input').click()">🖼️</button>
+        <button title="Tambah Audio" class="w-9 h-9 flex items-center justify-center bg-slate-700 rounded font-bold text-lg" onclick="document.getElementById('file-audio-input').click()">🎵</button>
+        <input type="file" id="file-image-input" accept="image/*" class="hidden" onchange="handleMediaUpload(event, 'image')">
+        <input type="file" id="file-audio-input" accept="audio/*" class="hidden" onchange="handleMediaUpload(event, 'audio')">
         <button title="Huraian Tahap 1" class="px-2 h-9 flex items-center justify-center bg-slate-700 rounded text-white font-bold text-xs ml-1" onclick="insertBulletLine(1)">-</button>
         <button title="Huraian Tahap 2" class="px-2 h-9 flex items-center justify-center bg-slate-700 rounded text-white font-bold text-xs ml-1" onclick="insertBulletLine(2)">--</button>
         <button title="Huraian Tahap 3" class="px-2 h-9 flex items-center justify-center bg-slate-700 rounded text-white font-bold text-xs ml-1" onclick="insertBulletLine(3)">---</button>
@@ -198,6 +207,8 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
+    // KOD TAMBAHAN: Initialize Firebase Storage
+    const storage = firebase.storage();
 
     let state = { uid: null, fileId: null, folderId: null, noteId: null, saveTimer: null };
 
@@ -521,6 +532,61 @@
       editorEl.focus();
       saveSelection();
     }
+
+    // --- KOD TAMBAHAN: FUNGSI UPLOAD GAMBAR & AUDIO ---
+    async function handleMediaUpload(event, type) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const loader = document.getElementById('saveLoader');
+      const bar = document.getElementById('progressBar');
+      const status = document.getElementById('saveStatus');
+
+      loader.classList.remove('hidden');
+      bar.style.width = '30%';
+      status.textContent = 'Memuat naik...';
+
+      try {
+        // Upload ke Firebase Storage (folder: uploads/UserID/timestamp_filename)
+        const fileRef = storage.ref(`uploads/${state.uid}/${Date.now()}_${file.name}`);
+        await fileRef.put(file);
+        const url = await fileRef.getDownloadURL();
+
+        bar.style.width = '100%';
+        status.textContent = 'Berjaya dimuat naik!';
+
+        restoreSelection();
+        let mediaHTML = '';
+        if (type === 'image') {
+          mediaHTML = `<img src="${url}" alt="gambar nota" /><br/>`;
+        } else if (type === 'audio') {
+          mediaHTML = `<audio controls src="${url}"></audio><br/>`;
+        }
+
+        // Masukkan elemen media ke dalam editor
+        document.execCommand('insertHTML', false, mediaHTML);
+        editorEl.focus();
+        saveSelection();
+        
+        // Wajib trigger event 'input' supaya Auto-Save pangkalan data menyimpan media ini
+        editorEl.dispatchEvent(new Event('input')); 
+
+        setTimeout(() => {
+          loader.classList.add('hidden');
+          status.textContent = '';
+        }, 1500);
+
+      } catch (e) {
+        console.error("Muat naik gagal:", e);
+        alert("Ralat muat naik: Pastikan Firebase Storage Rules anda membenarkan 'write'.");
+        loader.classList.add('hidden');
+        status.textContent = 'Gagal muat naik';
+      }
+      
+      // Reset input supaya file yang sama boleh dipilih lagi nanti
+      event.target.value = ""; 
+    }
+    // --------------------------------------------------
 
     // --- MANUAL SEJARAH (OVERWRITE - HANYA SIMPAN SATU TERAKHIR) ---
     document.getElementById('btnManualSave').onclick = async () => {
