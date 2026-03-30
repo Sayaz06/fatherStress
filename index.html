@@ -85,9 +85,27 @@
       background-color: #4338ca; 
     }
 
-    /* KOD TAMBAHAN: Gaya untuk gambar & audio di dalam editor */
+    /* KOD TAMBAHAN: Gaya untuk gambar & butang audio di dalam editor */
     .editor img { max-width: 100%; border-radius: 8px; margin: 10px 0; border: 1px solid #334155; }
-    .editor audio { width: 100%; margin: 10px 0; border-radius: 8px; outline: none; }
+    
+    /* Ini butang kecil audio dalam ayat */
+    .audio-inline-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      background-color: #4f46e5; color: #ffffff; 
+      padding: 2px 10px; border-radius: 12px; 
+      font-size: 12px; font-weight: bold; cursor: pointer; 
+      user-select: all; margin: 0 4px; border: 1px solid #312e81;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    /* Ini Pemain Terapung di bawah skrin */
+    .floating-audio-box {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: #1e293b; padding: 12px; border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.8); border: 2px solid #6366f1;
+      display: flex; flex-direction: column; gap: 8px; z-index: 100;
+      width: 90%; max-width: 400px;
+    }
   </style>
 </head>
 <body class="min-h-screen w-full">
@@ -190,7 +208,15 @@
           <div id="historyList" class="p-4 flex flex-col gap-3 max-h-[400px] overflow-y-auto text-center"></div>
         </div>
       </div>
-    </section>
+
+      <div id="floating-audio-box" class="floating-audio-box hidden">
+        <div class="flex justify-between items-center px-1">
+            <span class="text-xs font-bold text-indigo-400">🎵 Pemain Audio</span>
+            <button onclick="closeAudioBox()" class="text-red-400 font-bold text-lg">&times;</button>
+        </div>
+        <audio id="floating-audio-player" controls class="w-full"></audio>
+      </div>
+      </section>
   </main>
 
   <script>
@@ -347,7 +373,10 @@
     // -------------------------------------------------------------------------
 
     // --- KOD TAMBAHAN (INJECTED): FUNGSI DOUBLE CLICK UNTUK PENANDA BACAAN ---
-    editorEl.addEventListener('dblclick', () => {
+    editorEl.addEventListener('dblclick', (e) => {
+      // Pastikan double click bukan pada butang audio
+      if (e.target && e.target.classList.contains('audio-inline-btn')) return;
+
       // KOD TAMBAHAN: Semak jika fungsi penanda ditutup (OFF), hentikan tindakan
       if (window.isMarkingEnabled === false) return;
 
@@ -533,7 +562,7 @@
       saveSelection();
     }
 
-    // --- KOD TAMBAHAN: FUNGSI UPLOAD GAMBAR & AUDIO YANG DIBUNGKUS (WRAPPED) ---
+    // --- KOD TAMBAHAN BARU: FUNGSI UPLOAD GAMBAR & BUTANG AUDIO ---
     async function handleMediaUpload(event, type) {
       const file = event.target.files[0];
       if (!file) return;
@@ -558,20 +587,18 @@
         restoreSelection();
         let mediaHTML = '';
         
-        // KOD YANG DIBAIKI: Saya bungkus dalam span (contenteditable="false") & letak &nbsp;
-        // Ini memastikan audio/gambar berkelakuan seperti "satu huruf teks" yang mudah di-highlight dan dialih
         if (type === 'image') {
           mediaHTML = `&nbsp;<span contenteditable="false" style="display:inline-block; max-width:100%; user-select:all;"><img src="${url}" alt="gambar nota" style="max-width: 100%; border-radius: 8px; margin: 5px 0; border: 1px solid #334155;" /></span>&nbsp;`;
         } else if (type === 'audio') {
-          mediaHTML = `&nbsp;<span contenteditable="false" style="display:inline-block; width:100%; max-width:400px; user-select:all;"><audio controls src="${url}" style="width: 100%; margin: 5px 0; border-radius: 8px; outline: none;"></audio></span>&nbsp;`;
+          // IDEA BARU: Insert Butang Audio di hujung ayat
+          mediaHTML = `&nbsp;<button contenteditable="false" class="audio-inline-btn" data-audiourl="${url}">🔊 Mainkan Audio</button>&nbsp;`;
         }
 
-        // Masukkan elemen media ke dalam editor mengikut posisi asal cursor
+        // Masukkan elemen media ke dalam editor
         document.execCommand('insertHTML', false, mediaHTML);
         editorEl.focus();
         saveSelection();
         
-        // Wajib trigger event 'input' supaya Auto-Save pangkalan data menyimpan media ini
         editorEl.dispatchEvent(new Event('input')); 
 
         setTimeout(() => {
@@ -586,7 +613,6 @@
         status.textContent = 'Gagal muat naik';
       }
       
-      // Reset input supaya file yang sama boleh dipilih lagi nanti
       event.target.value = ""; 
     }
     // --------------------------------------------------
@@ -656,24 +682,6 @@
     
     document.getElementById('btnAddFile').onclick = async () => { const t = prompt('Nama Fail Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }};
     document.getElementById('btnAddFolder').onclick = async () => { const t = prompt('Nama Folder Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }};
-
-    // =========================================================================
-    // --- KOD PENYELAMAT: KEMBALIKAN AUDIO HALIMUNAN ---
-    // =========================================================================
-    const editorPenyelamat = document.getElementById('editor');
-    if (editorPenyelamat) {
-        // Gunakan addEventListener supaya ia tidak mengganggu fungsi oninput Auto-Save asal awak
-        editorPenyelamat.addEventListener('input', function() {
-            const semuaAudio = editorPenyelamat.querySelectorAll('audio');
-            semuaAudio.forEach(audio => {
-                // Jika browser buang 'controls' lepas paste, kita letak balik!
-                if (!audio.hasAttribute('controls')) {
-                    audio.setAttribute('controls', 'controls');
-                }
-            });
-        });
-    }
-    // =========================================================================
 
   </script> <script>
     if ("serviceWorker" in navigator) {
