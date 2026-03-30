@@ -89,7 +89,7 @@
     .floating-audio-page { 
       position: fixed; 
       right: 16px; 
-      top: 45%; /* Bawah sikit dari butang flip */
+      top: 45%; 
       z-index: 60; 
       width: 46px; 
       height: 46px; 
@@ -136,7 +136,7 @@
 
     <section id="view-folders" class="hidden">
       <div class="flex items-center justify-between mb-4 gap-2">
-        <button onclick="showView('home')" class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded">← Kembali</button>
+        <button onclick="showPage('home')" class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded">← Kembali</button>
         <h3 id="labelFile" class="font-bold text-indigo-400 text-sm truncate break-text"></h3>
       </div>
       <div class="flex gap-2 mb-6">
@@ -250,17 +250,14 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
-    // KOD TAMBAHAN: Initialize Firebase Storage
     const storage = firebase.storage();
 
+    // DIPERBETULKAN: Semua pembolehubah diselaraskan supaya tiada conflict
     let state = { user: null, currentFileId: null, currentFolderId: null, currentNoteId: null, lastSavedContent: "" };
 
     const views = { login: document.getElementById('view-login'), home: document.getElementById('view-home'), folders: document.getElementById('view-folders'), note: document.getElementById('view-note') };
     const editor = document.getElementById('editor'), historyList = document.getElementById('history-list'), saveStatus = document.getElementById('save-status');
 
-    // ==========================================
-    // KOD AUDIO PAGE: DAFTARKAN VIEW BARU
-    // ==========================================
     views.audioPage = document.getElementById('view-audio-page');
 
     function showPage(viewName) {
@@ -273,13 +270,7 @@
 
     auth.onAuthStateChanged(user => {
         state.user = user;
-        if (user) { 
-            state.uid = user.uid; 
-            showPage('home'); 
-            loadFiles(); 
-        } else { 
-            showPage('login'); 
-        }
+        if (user) { showPage('home'); loadFiles(); } else { showPage('login'); }
     });
 
     const btnGoogle = document.getElementById('btnGoogle');
@@ -288,7 +279,7 @@
     const btnLogout = document.getElementById('btnLogout');
     if(btnLogout) btnLogout.onclick = () => auth.signOut();
 
-    const filesRef = () => db.collection('users').doc(state.uid).collection('files');
+    const filesRef = () => db.collection('users').doc(state.user.uid).collection('files');
     const foldersRef = (fId) => filesRef().doc(fId).collection('folders');
     const notesRef = (fId, folId) => foldersRef(fId).doc(folId).collection('notes');
 
@@ -374,7 +365,6 @@
 
         nRef.doc(state.currentNoteId).onSnapshot(doc => {
             const data = doc.data();
-            // Halang update if typing to prevent cursor jump
             if (data && editor && editor.innerHTML !== data.content && !editor.contains(document.activeElement)) { 
                 editor.innerHTML = data.content || ''; 
                 state.lastSavedContent = data.content; 
@@ -571,7 +561,7 @@
         if(status) status.innerText = 'Memuat naik gambar...';
 
         try {
-            const userId = (state.user && state.user.uid) ? state.user.uid : (state.uid || 'anonymous');
+            const userId = state.user.uid;
             const fileRef = storage.ref(`uploads/${userId}/${Date.now()}_${file.name}`);
             await fileRef.put(file);
             const url = await fileRef.getDownloadURL();
@@ -604,7 +594,6 @@
     // --- KOD LOGIK HALAMAN AUDIO (AUDIO PAGE) ANAK ---
     // =========================================================================
     
-    // Rujukan ke Pangkalan Data (Sub-collection audios di bawah nota)
     const audiosRef = () => notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId).collection('audios');
 
     const btnOpenAudioPage = document.getElementById('btnOpenAudioPage');
@@ -626,7 +615,6 @@
         };
     }
 
-    // Fungsi Papar Audio Bersusun
     async function loadAudios() {
         const snap = await audiosRef().get();
         const list = document.getElementById('listAudioPage');
@@ -636,7 +624,6 @@
         let items = [];
         snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
 
-        // Susunan Teori: Nombor dulu, kemudian Abjad A-Z
         items.sort((a, b) => {
             let titleA = (a.title || "").toLowerCase();
             let titleB = (b.title || "").toLowerCase();
@@ -659,7 +646,7 @@
                 const newTitle = prompt('Tukar Nama Audio:', item.title);
                 if(newTitle && newTitle.trim() !== "" && newTitle !== item.title) {
                     await audiosRef().doc(item.id).update({title: newTitle.trim()});
-                    loadAudios(); // Segarkan senarai
+                    loadAudios(); 
                 }
             };
             
@@ -681,7 +668,6 @@
         });
     }
 
-    // Fungsi Muat Naik Audio Baru
     window.handleAudioPageUpload = async function(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -695,7 +681,7 @@
         if(status) status.innerText = 'Memuat naik audio... Sila tunggu.';
 
         try {
-            const userId = (state.user && state.user.uid) ? state.user.uid : (state.uid || 'anonymous');
+            const userId = state.user.uid;
             const fileRef = storage.ref(`uploads/${userId}/${Date.now()}_${file.name}`);
             await fileRef.put(file);
             const url = await fileRef.getDownloadURL();
@@ -721,17 +707,17 @@
 
         } catch (e) {
             console.error(e);
-            alert("Ralat muat naik audio: Pastikan Firebase Storage Rules anda membenarkan 'write'.");
+            alert("Ralat muat naik audio.");
             if(loader) loader.classList.add('hidden');
             if(status) status.innerText = 'Gagal muat naik';
         }
         event.target.value = ""; 
     };
 
-    // --- MANUAL SEJARAH ---
+    // --- DIPERBETULKAN: MANUAL SEJARAH DENGAN state.currentNoteId ---
     document.getElementById('btnManualSave').onclick = async () => {
         const content = editor.innerHTML;
-        if(!content || !state.noteId) return alert("Nota kosong.");
+        if(!content || !state.currentNoteId) return alert("Nota kosong.");
         const loader = document.getElementById('saveLoader');
         const bar = document.getElementById('progressBar');
         loader.classList.remove('hidden'); bar.style.width = '0%';
@@ -763,6 +749,7 @@
         const list = document.getElementById('historyList');
         list.innerHTML = '<p class="text-xs animate-pulse">Menarik data...</p>';
 
+        // DIPERBETULKAN: Cari guna state.currentNoteId
         const snap = await notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId).collection('history_manual').orderBy('timestamp', 'desc').limit(1).get();
 
         list.innerHTML = '';
@@ -782,6 +769,7 @@
     const btnHistory = document.getElementById('btnHistory');
     if(btnHistory) btnHistory.onclick = () => toggleHistory(true);
     
+    // DIPERBETULKAN: showPage('folders')
     const btnBackToFolders = document.getElementById('btnBackToFolders');
     if(btnBackToFolders) btnBackToFolders.onclick = () => showPage('folders');
 
