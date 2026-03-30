@@ -337,9 +337,6 @@ window.insertBulletLine = function(level) {
 // --- KOD TAMBAHAN (INJECTED): FUNGSI DOUBLE CLICK UNTUK PENANDA BACAAN (KLIK 2-KALI PANTAS) ---
 if (editor) {
     editor.addEventListener('dblclick', (e) => {
-        // Pastikan double click bukan pada butang audio
-        if (e.target && e.target.closest('.audio-inline-btn')) return;
-
         // KOD TAMBAHAN: Semak jika fungsi penanda ditutup (OFF), hentikan tindakan
         if (window.isMarkingEnabled === false) return;
 
@@ -480,10 +477,77 @@ if (searchFoldersInput) {
 }
 // ------------------------------------------------------------------------------
 
+// --- MANUAL SEJARAH (OVERWRITE - HANYA SIMPAN SATU TERAKHIR) ---
+document.getElementById('btnManualSave').onclick = async () => {
+    const content = editorEl.innerHTML;
+    if(!content || !state.noteId) return alert("Nota kosong.");
+    
+    const loader = document.getElementById('saveLoader');
+    const bar = document.getElementById('progressBar');
+    loader.classList.remove('hidden');
+    bar.style.width = '0%';
+    setTimeout(() => bar.style.width = '60%', 200);
+
+    try {
+        const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
+        
+        const oldHistory = await noteDoc.collection('history_manual').get();
+        const batch = db.batch();
+        oldHistory.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+
+        await noteDoc.collection('history_manual').add({ content, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+        
+        bar.style.width = '100%';
+        setTimeout(() => {
+            loader.classList.add('hidden');
+            document.getElementById('saveStatus').textContent = 'Sejarah Diperbaharui!';
+            setTimeout(() => document.getElementById('saveStatus').textContent = '', 2000);
+        }, 800);
+    } catch (e) {
+        loader.classList.add('hidden');
+        alert('Gagal simpan: ' + e.message);
+    }
+};
+
+async function toggleHistory(show) {
+    const modal = document.getElementById('modalHistory');
+    if (!show) return modal.classList.add('hidden');
+    modal.classList.remove('hidden');
+    const list = document.getElementById('historyList');
+    list.innerHTML = '<p class="text-xs animate-pulse">Menarik data...</p>';
+
+    const noteDoc = db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').doc(state.folderId).collection('notes').doc(state.noteId);
+    const snap = await noteDoc.collection('history_manual').orderBy('timestamp', 'desc').limit(1).get();
+
+    list.innerHTML = '';
+    if(snap.empty) return list.innerHTML = '<p class="text-xs opacity-50 p-10">Tiada sejarah manual disimpan.</p>';
+
+    snap.forEach(doc => {
+        const d = doc.data();
+        const btn = document.createElement('button');
+        btn.className = `w-full p-4 rounded-xl border border-indigo-900 bg-indigo-900/10 text-left`;
+        btn.innerHTML = `<span class="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Snapshot Terakhir</span><br><span class="text-xs">${d.timestamp?.toDate().toLocaleString() || 'Baru'}</span>`;
+        btn.onclick = () => { if(confirm(`Pulihkan versi ini?`)) { editorEl.innerHTML = d.content; modal.classList.add('hidden'); editorEl.dispatchEvent(new Event('input')); }};
+        list.appendChild(btn);
+    });
+}
+
+// --- TOOLS ---
+document.getElementById('btnHistory').onclick = () => toggleHistory(true);
+document.getElementById('btnBackToFolders').onclick = () => showView('folders');
+
+async function editTitle(p,id,o,cb){ const n = prompt('Tukar Nama:',o); if(n && n!==o){ await db.collection('users').doc(state.uid).collection(p).doc(id).update({title:n}); cb(); } }
+async function deleteItem(p,id,cb){ if(confirm('Padam item ini secara kekal?')){ await db.collection('users').doc(state.uid).collection(p).doc(id).delete(); cb(); } }
+
+document.getElementById('btnAddFile').onclick = async () => { const t = prompt('Nama Fail Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFiles(); }};
+document.getElementById('btnAddFolder').onclick = async () => { const t = prompt('Nama Folder Baru?'); if(t) { await db.collection('users').doc(state.uid).collection('files').doc(state.fileId).collection('folders').add({ title: t, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); loadFolders(); }};
+
+
 // =========================================================================
-// --- KOD TAMBAHAN BARU: FUNGSI UPLOAD GAMBAR & BUTANG AUDIO ---
+// --- KOD TAMBAHAN BARU: UPLOAD GAMBAR DALAM EDITOR SAHAJA ---
 // =========================================================================
-window.handleMediaUpload = async function(event, type) {
+window.handleImageUpload = async function(event) {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -493,10 +557,9 @@ window.handleMediaUpload = async function(event, type) {
 
     if(loader) loader.classList.remove('hidden');
     if(bar) bar.style.width = '30%';
-    if(status) status.innerText = 'Memuat naik...';
+    if(status) status.innerText = 'Memuat naik gambar...';
 
     try {
-        // Upload ke Firebase Storage (folder: uploads/UserID/timestamp_filename)
         const userId = (state.user && state.user.uid) ? state.user.uid : (state.uid || 'anonymous');
         const fileRef = storage.ref(`uploads/${userId}/${Date.now()}_${file.name}`);
         await fileRef.put(file);
@@ -506,21 +569,13 @@ window.handleMediaUpload = async function(event, type) {
         if(status) status.innerText = 'Berjaya dimuat naik!';
 
         restoreSelection();
-        let mediaHTML = '';
         
-        if (type === 'image') {
-            mediaHTML = `&nbsp;<span contenteditable="false" style="display:inline-block; max-width:100%; user-select:all;"><img src="${url}" alt="gambar nota" style="max-width: 100%; border-radius: 8px; margin: 5px 0; border: 1px solid #334155;" /></span>&nbsp;`;
-        } else if (type === 'audio') {
-            // IDEA BARU: Insert Butang Audio di hujung ayat
-            mediaHTML = `&nbsp;<button contenteditable="false" class="audio-inline-btn" data-audiourl="${url}">🔊 Mainkan Audio</button>&nbsp;`;
-        }
-
-        // Masukkan elemen media ke dalam editor
+        let mediaHTML = `&nbsp;<span contenteditable="false" style="display:inline-block; max-width:100%; user-select:all;"><img src="${url}" alt="gambar nota" style="max-width: 100%; border-radius: 8px; margin: 5px 0; border: 1px solid #334155;" /></span>&nbsp;`;
+        
         document.execCommand('insertHTML', false, mediaHTML);
         if(editor) editor.focus();
         saveSelection();
         
-        // Wajib trigger event 'input' supaya Auto-Save pangkalan data menyimpan media ini
         if(editor) editor.dispatchEvent(new Event('input')); 
 
         setTimeout(() => {
@@ -535,44 +590,141 @@ window.handleMediaUpload = async function(event, type) {
         if(status) status.innerText = 'Gagal muat naik';
     }
     
-    // Reset input supaya fail yang sama boleh dipilih lagi nanti
     event.target.value = ""; 
 };
 
-// --- KOD TAMBAHAN YANG DIBAIKI: FUNGSI KLIK BUTANG AUDIO & PEMAIN TERAPUNG ---
-if (editor) {
-    // Menggunakan .closest() supaya sentiasa tepat kena pada butang, walaupun terkena text
-    editor.addEventListener('click', function(e) {
-        const btn = e.target.closest('.audio-inline-btn');
-        if (btn) {
-            const audioUrl = btn.getAttribute('data-audiourl');
-            if (audioUrl) {
-                const floatingBox = document.getElementById('floating-audio-box');
-                const floatingPlayer = document.getElementById('floating-audio-player');
-                
-                if (floatingBox && floatingPlayer) {
-                    floatingBox.classList.remove('hidden');
-                    
-                    // Mainkan jika src berbeza, elakkan reset jika tengah main
-                    if (floatingPlayer.getAttribute('src') !== audioUrl) {
-                        floatingPlayer.src = audioUrl;
-                        // Cuba play secara automatik
-                        floatingPlayer.play().catch(err => console.log("Tekan play secara manual diperlukan oleh browser.", err));
-                    }
-                }
-            }
+// =========================================================================
+// --- KOD TAMBAHAN BARU: HALAMAN AUDIO ANAK (AUDIO PAGE) ---
+// =========================================================================
+
+// Tambah view audio page ke dalam senarai views supaya fungsi asal hide/show berjalan lancar
+views.audioPage = document.getElementById('view-audio-page');
+
+const audiosRef = () => notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId).collection('audios');
+
+const btnOpenAudioPage = document.getElementById('btnOpenAudioPage');
+if (btnOpenAudioPage) {
+    btnOpenAudioPage.onclick = () => {
+        if (!state.currentNoteId) {
+            alert("Sila taip sesuatu dalam nota untuk menyimpannya terlebih dahulu sebelum membuka halaman audio.");
+            return;
         }
+        showPage('audioPage');
+        loadAudios();
+    };
+}
+
+const btnBackToNoteFromAudio = document.getElementById('btnBackToNoteFromAudio');
+if (btnBackToNoteFromAudio) {
+    btnBackToNoteFromAudio.onclick = () => {
+        showPage('note');
+    };
+}
+
+// Fungsi Muat Turun Data Audio ke Halaman Audio
+async function loadAudios() {
+    const snap = await audiosRef().get();
+    const list = document.getElementById('listAudioPage');
+    if (!list) return;
+    list.innerHTML = '';
+
+    let items = [];
+    snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+
+    // Susunan 1-9 & A-Z yang awak suka
+    items.sort((a, b) => {
+        let titleA = (a.title || "").toLowerCase();
+        let titleB = (b.title || "").toLowerCase();
+        return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = "bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex flex-col gap-3";
+        
+        // Header untuk tajuk dan butang edit/padam
+        const header = document.createElement('div');
+        header.className = "flex justify-between items-center gap-2";
+        header.innerHTML = `<span class="font-bold flex-1 text-left text-sm text-emerald-400 break-text">${item.title || 'Audio File'}</span>
+          <div class="flex gap-2">
+            <button class="p-2 bg-slate-700 rounded text-xs edit-btn" title="Tukar Nama">✏️</button>
+            <button class="p-2 bg-red-900/20 text-red-500 rounded text-xs del-btn" title="Padam">🗑️</button>
+          </div>`;
+        
+        header.querySelector('.edit-btn').onclick = async () => {
+            const newTitle = prompt('Tukar Nama Audio:', item.title);
+            if(newTitle && newTitle.trim() !== "" && newTitle !== item.title) {
+                await audiosRef().doc(item.id).update({title: newTitle.trim()});
+                loadAudios();
+            }
+        };
+        
+        header.querySelector('.del-btn').onclick = async () => {
+            if(confirm('Padam audio ini secara kekal?')) {
+                await audiosRef().doc(item.id).delete();
+                loadAudios();
+            }
+        };
+
+        // Pemain Audio
+        const player = document.createElement('audio');
+        player.controls = true;
+        player.src = item.url;
+        player.className = "w-full outline-none rounded-lg";
+
+        div.appendChild(header);
+        div.appendChild(player);
+        list.appendChild(div);
     });
 }
 
-// Fungsi untuk tutup Kotak Audio Terapung
-window.closeAudioBox = function() {
-    const floatingBox = document.getElementById('floating-audio-box');
-    const floatingPlayer = document.getElementById('floating-audio-player');
-    if (floatingBox && floatingPlayer) {
-        floatingPlayer.pause();
-        floatingPlayer.removeAttribute('src'); // Kosongkan sumber supaya berhenti sepenuhnya
-        floatingBox.classList.add('hidden');
+// Fungsi Muat Naik Audio Baru dari Halaman Audio
+window.handleAudioPageUpload = async function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const loader = document.getElementById('saveLoaderAudio');
+    const bar = document.getElementById('progressBarAudio');
+    const status = document.getElementById('audioUploadStatus');
+
+    if(loader) loader.classList.remove('hidden');
+    if(bar) bar.style.width = '30%';
+    if(status) status.innerText = 'Memuat naik audio... Sila tunggu.';
+
+    try {
+        const userId = (state.user && state.user.uid) ? state.user.uid : (state.uid || 'anonymous');
+        const fileRef = storage.ref(`uploads/${userId}/${Date.now()}_${file.name}`);
+        await fileRef.put(file);
+        const url = await fileRef.getDownloadURL();
+
+        if(bar) bar.style.width = '100%';
+        if(status) status.innerText = 'Menyimpan ke pangkalan data...';
+
+        // Guna nama asal fail (tanpa .mp3 / extension) sebagai nama default
+        let defaultTitle = file.name.split('.').slice(0, -1).join('.') || "Audio Baru";
+        
+        // Simpan maklumat ke dalam Firestore (sub-collection audios di bawah nota)
+        await audiosRef().add({
+            title: defaultTitle,
+            url: url,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        if(status) status.innerText = 'Berjaya dimuat naik!';
+        loadAudios(); // Segar semula senarai audio di halaman
+
+        setTimeout(() => {
+            if(loader) loader.classList.add('hidden');
+            if(status) status.innerText = '';
+        }, 2000);
+
+    } catch (e) {
+        console.error("Muat naik gagal:", e);
+        alert("Ralat muat naik audio: Pastikan Firebase Storage Rules anda membenarkan 'write'.");
+        if(loader) loader.classList.add('hidden');
+        if(status) status.innerText = 'Gagal muat naik';
     }
+    
+    // Reset supaya fail sama boleh dimuat naik lagi kalau perlu
+    event.target.value = ""; 
 };
-// =========================================================================
