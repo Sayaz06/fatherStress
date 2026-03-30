@@ -538,3 +538,21 @@ window.handleMediaUpload = async function(event, type) {
     event.target.value = ""; 
 };
 // -------------------------------------------------------------------------
+
+// =========================================================================
+// --- KOD PENYELAMAT: KEMBALIKAN AUDIO HALIMUNAN ---
+// =========================================================================
+const editorPenyelamat = document.getElementById('editor');
+if (editorPenyelamat) {
+    // Gunakan addEventListener supaya ia tidak mengganggu fungsi oninput Auto-Save asal awak
+    editorPenyelamat.addEventListener('input', function() {
+        const semuaAudio = editorPenyelamat.querySelectorAll('audio');
+        semuaAudio.forEach(audio => {
+            // Jika browser buang 'controls' lepas paste, kita letak balik!
+            if (!audio.hasAttribute('controls')) {
+                audio.setAttribute('controls', 'controls');
+            }
+        });
+    });
+}
+// =========================================================================
