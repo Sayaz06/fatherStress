@@ -761,11 +761,11 @@
     };
 
     // =========================================================================
-    // --- DIPERBAIKAI: MANUAL SEJARAH DENGAN DIRECT FIELD UPDATE (TANPA STUCK) ---
+    // --- DIPERBAIKAI: MANUAL SEJARAH DENGAN UPDATE ---
     // =========================================================================
     document.getElementById('btnManualSave').onclick = async () => {
         const content = editor.innerHTML;
-        if(!content || !state.currentNoteId) return alert("Nota kosong.");
+        if(!content || !state.currentNoteId) return alert("Nota kosong atau belum dimuatkan.");
         const loader = document.getElementById('saveLoader');
         const bar = document.getElementById('progressBar');
         loader.classList.remove('hidden'); bar.style.width = '0%';
@@ -774,11 +774,11 @@
         try {
             const noteDoc = notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
             
-            // Kita permudahkan tanpa perlu delete subcollection (ini yang menyebabkan selalu stuck/hang)
-            await noteDoc.set({
+            // Kita guna .update() kerana dokumen nota memang sudah disahkan wujud
+            await noteDoc.update({
                 manualHistory: content,
                 manualHistoryTime: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            });
             
             bar.style.width = '100%';
             setTimeout(() => {
@@ -789,8 +789,9 @@
             }, 800);
         } catch (e) { 
             loader.classList.add('hidden'); 
-            alert('Gagal simpan. Sila semak capaian internet.'); 
-            console.error(e);
+            // Amaran ini akan memaparkan ralat SEBENAR dari Firebase
+            alert('Gagal simpan! Punca sebenar: ' + e.message); 
+            console.error("Ralat Firebase:", e);
         }
     };
 
