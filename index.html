@@ -275,7 +275,7 @@
       folders: document.getElementById('view-folders'), 
       note: document.getElementById('view-note'),
       audioPage: document.getElementById('view-audio-page'),
-      dustbin: document.getElementById('view-dustbin') // Tambah Dustbin
+      dustbin: document.getElementById('view-dustbin') 
     };
     
     const editor = document.getElementById('editor'), historyList = document.getElementById('history-list'), saveStatus = document.getElementById('save-status');
@@ -331,7 +331,6 @@
                     if(state.currentFileId && views.folders && views.folders.classList.contains('hidden')) { loadFiles(); } else { loadFolders(); }
                 }
             };
-            // Luluskan keseluruhan 'item' data untuk memudahkan Sistem Tong Sampah
             div.querySelector('.del-btn').onclick = () => onDelete(item.id, item.title || 'Tiada Nama', item);
             targetEl.appendChild(div);
         });
@@ -588,7 +587,7 @@
         });
     }
 
-    // --- UPLOAD GAMBAR DALAM EDITOR ---
+    // --- UPLOAD GAMBAR DALAM EDITOR (DENGAN PERATUSAN) ---
     window.handleImageUpload = async function(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -598,13 +597,23 @@
         const status = document.getElementById('saveStatus');
 
         if(loader) loader.classList.remove('hidden');
-        if(bar) bar.style.width = '30%';
-        if(status) status.innerText = 'Memuat naik gambar...';
+        if(bar) bar.style.width = '0%';
+        if(status) status.innerText = 'Memuat naik gambar... 0%';
 
         try {
             const userId = state.user.uid;
             const fileRef = storage.ref(`uploads/${userId}/${Date.now()}_${file.name}`);
-            await fileRef.put(file);
+            
+            // Guna UploadTask Firebase untuk dapatkan % masa nyata
+            const uploadTask = fileRef.put(file);
+            
+            uploadTask.on('state_changed', (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                if(bar) bar.style.width = progress + '%';
+                if(status) status.innerText = `Memuat naik gambar... ${Math.round(progress)}%`;
+            });
+
+            await uploadTask;
             const url = await fileRef.getDownloadURL();
 
             if(bar) bar.style.width = '100%';
@@ -631,7 +640,7 @@
         event.target.value = ""; 
     };
 
-    // --- UPLOAD GAMBAR MELALUI PASTE (SCREENSHOT) ---
+    // --- UPLOAD GAMBAR MELALUI PASTE (SCREENSHOT DENGAN PERATUSAN) ---
     if (editor) {
         editor.addEventListener('paste', async (e) => {
             const clipboardData = e.clipboardData || window.clipboardData;
@@ -640,9 +649,8 @@
             const items = clipboardData.items;
             for (let i = 0; i < items.length; i++) {
                 const item = items[i];
-                // Kesan jika fail yang di-paste adalah imej/gambar
                 if (item.type.indexOf("image") !== -1) {
-                    e.preventDefault(); // PENTING: Menghalang laptop dari masukkan kod gergasi Base64!
+                    e.preventDefault(); 
                     const file = item.getAsFile();
                     if (!file) continue;
 
@@ -651,13 +659,22 @@
                     const status = document.getElementById('saveStatus');
 
                     if(loader) loader.classList.remove('hidden');
-                    if(bar) bar.style.width = '30%';
-                    if(status) status.innerText = 'Memuat naik gambar (Paste)...';
+                    if(bar) bar.style.width = '0%';
+                    if(status) status.innerText = 'Memuat naik (Paste)... 0%';
 
                     try {
                         const userId = state.user.uid;
                         const fileRef = storage.ref(`uploads/${userId}/paste_${Date.now()}_image.png`);
-                        await fileRef.put(file);
+                        
+                        // Pantau peratusan
+                        const uploadTask = fileRef.put(file);
+                        uploadTask.on('state_changed', (snapshot) => {
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                            if(bar) bar.style.width = progress + '%';
+                            if(status) status.innerText = `Memuat naik (Paste)... ${Math.round(progress)}%`;
+                        });
+
+                        await uploadTask;
                         const url = await fileRef.getDownloadURL();
 
                         if(bar) bar.style.width = '100%';
@@ -681,7 +698,7 @@
                         if(loader) loader.classList.add('hidden');
                         if(status) status.innerText = 'Gagal';
                     }
-                    return; // Berhenti selepas proses gambar supaya tak ter-paste dua kali
+                    return; 
                 }
             }
         });
@@ -770,6 +787,7 @@
         });
     }
 
+    // --- UPLOAD AUDIO (DENGAN PERATUSAN) ---
     window.handleAudioPageUpload = async function(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -779,13 +797,22 @@
         const status = document.getElementById('audioUploadStatus');
 
         if(loader) loader.classList.remove('hidden');
-        if(bar) bar.style.width = '30%';
-        if(status) status.innerText = 'Memuat naik audio... Sila tunggu.';
+        if(bar) bar.style.width = '0%';
+        if(status) status.innerText = 'Memuat naik audio... 0%';
 
         try {
             const userId = state.user.uid;
             const fileRef = storage.ref(`uploads/${userId}/${Date.now()}_${file.name}`);
-            await fileRef.put(file);
+            
+            // Pantau peratusan muat naik audio
+            const uploadTask = fileRef.put(file);
+            uploadTask.on('state_changed', (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                if(bar) bar.style.width = progress + '%';
+                if(status) status.innerText = `Memuat naik audio... ${Math.round(progress)}%`;
+            });
+
+            await uploadTask;
             const url = await fileRef.getDownloadURL();
 
             if(bar) bar.style.width = '100%';
@@ -830,7 +857,6 @@
         try {
             const noteDoc = notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
             
-            // Kita guna .update() kerana dokumen nota memang sudah disahkan wujud
             await noteDoc.update({
                 manualHistory: content,
                 manualHistoryTime: firebase.firestore.FieldValue.serverTimestamp()
@@ -845,7 +871,6 @@
             }, 800);
         } catch (e) { 
             loader.classList.add('hidden'); 
-            // Amaran ini akan memaparkan ralat SEBENAR dari Firebase
             alert('Gagal simpan! Punca sebenar: ' + e.message); 
             console.error("Ralat Firebase:", e);
         }
@@ -923,7 +948,6 @@
         snap.forEach(doc => {
             let d = doc.data();
             
-            // Auto padan dari Firebase jika sudah melebihi 30 hari (Level 3)
             if (d.status === 'bin3' && now - d.bin3At > THIRTY_DAYS) {
                 dustbinRef.doc(doc.id).delete();
                 return;
@@ -959,8 +983,8 @@
 
             if (currentBinTab === 'bin1') {
                 div.querySelector('.btn-restore').onclick = async () => {
-                    await db.doc(d.originalPath).set(d.data); // Set balik data di lokasi asal
-                    await dustbinRef.doc(doc.id).delete(); // Buang dari tong sampah
+                    await db.doc(d.originalPath).set(d.data); 
+                    await dustbinRef.doc(doc.id).delete(); 
                     renderDustbin();
                 };
                 div.querySelector('.btn-perm').onclick = async () => {
