@@ -251,6 +251,15 @@
 
   </main>
 
+  <div id="floatingUploadUI" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-[100] hidden w-[90%] max-w-sm transition-all duration-300">
+    <div class="bg-slate-800/95 backdrop-blur border border-slate-600 rounded-2xl shadow-2xl p-4 flex flex-col items-center">
+      <p id="floatingUploadText" class="text-[11px] text-emerald-400 mb-2 font-bold text-center tracking-wider">Memproses... 0%</p>
+      <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+        <div id="floatingProgressBar" class="progress-flow h-full" style="width: 0%;"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // FIREBASE CONFIG - GUNA MILIK ANDA
     const firebaseConfig = {
@@ -278,7 +287,7 @@
       dustbin: document.getElementById('view-dustbin') 
     };
     
-    const editor = document.getElementById('editor'), historyList = document.getElementById('history-list'), saveStatus = document.getElementById('save-status');
+    const editor = document.getElementById('editor'), historyList = document.getElementById('history-list'), saveStatus = document.getElementById('saveStatus');
 
     function showPage(viewName) {
         Object.keys(views).forEach(key => { if(views[key]) views[key].classList.add('hidden'); });
@@ -416,20 +425,19 @@
     let saveTimer;
     if(editor) {
         editor.oninput = () => {
-            const sStatus = document.getElementById('saveStatus');
-            if(sStatus) sStatus.innerText = "Menaip...";
+            if(saveStatus) saveStatus.innerText = "Menaip...";
             clearTimeout(saveTimer);
             saveTimer = setTimeout(async () => {
                 if (editor.innerHTML === state.lastSavedContent) return;
-                if(sStatus) sStatus.innerText = "Menyimpan...";
+                if(saveStatus) saveStatus.innerText = "Menyimpan...";
                 
                 const docRef = notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
                 await docRef.update({ content: editor.innerHTML, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
                 state.lastSavedContent = editor.innerHTML;
                 
-                if(sStatus) {
-                    sStatus.innerText = "Cloud synced";
-                    setTimeout(() => { if(sStatus.innerText === 'Cloud synced') sStatus.innerText = ''; }, 1500);
+                if(saveStatus) {
+                    saveStatus.innerText = "Cloud synced";
+                    setTimeout(() => { if(saveStatus.innerText === 'Cloud synced') saveStatus.innerText = ''; }, 1500);
                 }
             }, 2500);
         };
@@ -587,14 +595,15 @@
         });
     }
 
-    // --- UPLOAD GAMBAR DALAM EDITOR (DENGAN PERATUSAN) ---
+    // --- UPLOAD GAMBAR DALAM EDITOR (DIHALA KE WIDGET TERAPUNG) ---
     window.handleImageUpload = async function(event) {
         const file = event.target.files[0];
         if (!file) return;
 
-        const loader = document.getElementById('saveLoader');
-        const bar = document.getElementById('progressBar');
-        const status = document.getElementById('saveStatus');
+        // Menggunakan WIDGET TERAPUNG
+        const loader = document.getElementById('floatingUploadUI');
+        const bar = document.getElementById('floatingProgressBar');
+        const status = document.getElementById('floatingUploadText');
 
         if(loader) loader.classList.remove('hidden');
         if(bar) bar.style.width = '0%';
@@ -640,7 +649,7 @@
         event.target.value = ""; 
     };
 
-    // --- UPLOAD GAMBAR MELALUI PASTE (SCREENSHOT DENGAN PERATUSAN) ---
+    // --- UPLOAD GAMBAR MELALUI PASTE (SCREENSHOT DIHALA KE WIDGET TERAPUNG) ---
     if (editor) {
         editor.addEventListener('paste', async (e) => {
             const clipboardData = e.clipboardData || window.clipboardData;
@@ -654,9 +663,10 @@
                     const file = item.getAsFile();
                     if (!file) continue;
 
-                    const loader = document.getElementById('saveLoader');
-                    const bar = document.getElementById('progressBar');
-                    const status = document.getElementById('saveStatus');
+                    // Menggunakan WIDGET TERAPUNG
+                    const loader = document.getElementById('floatingUploadUI');
+                    const bar = document.getElementById('floatingProgressBar');
+                    const status = document.getElementById('floatingUploadText');
 
                     if(loader) loader.classList.remove('hidden');
                     if(bar) bar.style.width = '0%';
@@ -787,14 +797,15 @@
         });
     }
 
-    // --- UPLOAD AUDIO (DENGAN PERATUSAN) ---
+    // --- UPLOAD AUDIO (DIHALA KE WIDGET TERAPUNG) ---
     window.handleAudioPageUpload = async function(event) {
         const file = event.target.files[0];
         if (!file) return;
 
-        const loader = document.getElementById('saveLoaderAudio');
-        const bar = document.getElementById('progressBarAudio');
-        const status = document.getElementById('audioUploadStatus');
+        // Menggunakan WIDGET TERAPUNG
+        const loader = document.getElementById('floatingUploadUI');
+        const bar = document.getElementById('floatingProgressBar');
+        const status = document.getElementById('floatingUploadText');
 
         if(loader) loader.classList.remove('hidden');
         if(bar) bar.style.width = '0%';
@@ -844,15 +855,21 @@
     };
 
     // =========================================================================
-    // --- DIPERBAIKAI: MANUAL SEJARAH DENGAN UPDATE ---
+    // --- MANUAL SEJARAH DENGAN UPDATE (DIHALA KE WIDGET TERAPUNG) ---
     // =========================================================================
     document.getElementById('btnManualSave').onclick = async () => {
         const content = editor.innerHTML;
         if(!content || !state.currentNoteId) return alert("Nota kosong atau belum dimuatkan.");
-        const loader = document.getElementById('saveLoader');
-        const bar = document.getElementById('progressBar');
-        loader.classList.remove('hidden'); bar.style.width = '0%';
-        setTimeout(() => bar.style.width = '60%', 200);
+        
+        // Menggunakan WIDGET TERAPUNG
+        const loader = document.getElementById('floatingUploadUI');
+        const bar = document.getElementById('floatingProgressBar');
+        const status = document.getElementById('floatingUploadText');
+        
+        loader.classList.remove('hidden'); 
+        bar.style.width = '0%';
+        status.innerText = 'Memproses Sejarah...';
+        setTimeout(() => { bar.style.width = '60%'; status.innerText = 'Menyimpan...'; }, 200);
 
         try {
             const noteDoc = notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
@@ -863,12 +880,10 @@
             });
             
             bar.style.width = '100%';
+            status.innerText = 'Sejarah Diperbaharui!';
             setTimeout(() => {
                 loader.classList.add('hidden');
-                const s = document.getElementById('saveStatus');
-                s.textContent = 'Sejarah Diperbaharui!';
-                setTimeout(() => s.textContent = '', 2000);
-            }, 800);
+            }, 1500);
         } catch (e) { 
             loader.classList.add('hidden'); 
             alert('Gagal simpan! Punca sebenar: ' + e.message); 
