@@ -631,6 +631,62 @@
         event.target.value = ""; 
     };
 
+    // --- UPLOAD GAMBAR MELALUI PASTE (SCREENSHOT) ---
+    if (editor) {
+        editor.addEventListener('paste', async (e) => {
+            const clipboardData = e.clipboardData || window.clipboardData;
+            if (!clipboardData) return;
+            
+            const items = clipboardData.items;
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                // Kesan jika fail yang di-paste adalah imej/gambar
+                if (item.type.indexOf("image") !== -1) {
+                    e.preventDefault(); // PENTING: Menghalang laptop dari masukkan kod gergasi Base64!
+                    const file = item.getAsFile();
+                    if (!file) continue;
+
+                    const loader = document.getElementById('saveLoader');
+                    const bar = document.getElementById('progressBar');
+                    const status = document.getElementById('saveStatus');
+
+                    if(loader) loader.classList.remove('hidden');
+                    if(bar) bar.style.width = '30%';
+                    if(status) status.innerText = 'Memuat naik gambar (Paste)...';
+
+                    try {
+                        const userId = state.user.uid;
+                        const fileRef = storage.ref(`uploads/${userId}/paste_${Date.now()}_image.png`);
+                        await fileRef.put(file);
+                        const url = await fileRef.getDownloadURL();
+
+                        if(bar) bar.style.width = '100%';
+                        if(status) status.innerText = 'Berjaya dimuat naik!';
+
+                        restoreSelection();
+                        let mediaHTML = `&nbsp;<span contenteditable="false" style="display:inline-block; max-width:100%; user-select:all;"><img src="${url}" alt="gambar paste" style="max-width: 100%; border-radius: 8px; margin: 5px 0; border: 1px solid #334155;" /></span>&nbsp;`;
+                        
+                        document.execCommand('insertHTML', false, mediaHTML);
+                        if(editor) editor.focus();
+                        saveSelection();
+                        if(editor) editor.dispatchEvent(new Event('input')); 
+
+                        setTimeout(() => {
+                            if(loader) loader.classList.add('hidden');
+                            if(status) status.innerText = '';
+                        }, 1500);
+                    } catch (err) {
+                        console.error("Ralat muat naik paste:", err);
+                        alert("Ralat muat naik gambar paste.");
+                        if(loader) loader.classList.add('hidden');
+                        if(status) status.innerText = 'Gagal';
+                    }
+                    return; // Berhenti selepas proses gambar supaya tak ter-paste dua kali
+                }
+            }
+        });
+    }
+
     // =========================================================================
     // --- KOD LOGIK HALAMAN AUDIO (AUDIO PAGE) ANAK ---
     // =========================================================================
