@@ -116,7 +116,10 @@
 
   <header class="w-full flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/80 sticky top-0 z-50">
     <h1 class="text-lg font-bold text-indigo-400">Wan-Law <span class="text-white text-xs font-normal">v6.2 Pro</span></h1>
-    <button id="btnLogout" class="hidden px-2 py-1 rounded bg-red-900/20 text-red-400 text-[10px] border border-red-900/50">Logout</button>
+    <div class="flex gap-2">
+      <button id="btnDustbin" class="hidden px-2 py-1 rounded bg-slate-700 text-slate-300 text-[10px] border border-slate-600">🗑️ Tong Sampah</button>
+      <button id="btnLogout" class="hidden px-2 py-1 rounded bg-red-900/20 text-red-400 text-[10px] border border-red-900/50">Logout</button>
+    </div>
   </header>
 
   <main class="w-full max-w-4xl mx-auto p-4">
@@ -234,6 +237,18 @@
       <div id="listAudioPage" class="grid gap-4 w-full pb-20"></div>
     </section>
 
+    <section id="view-dustbin" class="hidden">
+      <div class="flex items-center justify-between mb-4 gap-2">
+        <button onclick="showPage('home')" class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded border border-slate-700">← Kembali</button>
+        <h3 class="font-bold text-slate-400 text-sm">Tong Sampah</h3>
+      </div>
+      <div class="flex gap-2 mb-4">
+        <button id="tabBin1" class="flex-1 py-2 bg-indigo-600 text-white rounded text-sm font-bold shadow transition">Level 1 (Baru)</button>
+        <button id="tabBin3" class="flex-1 py-2 bg-slate-700 text-white rounded text-sm font-bold shadow transition">Level 3 (Arkib)</button>
+      </div>
+      <div id="listDustbin" class="flex flex-col gap-3 w-full pb-20"></div>
+    </section>
+
   </main>
 
   <script>
@@ -252,20 +267,27 @@
     const db = firebase.firestore();
     const storage = firebase.storage();
 
-    // DIPERBETULKAN: Semua pembolehubah diselaraskan supaya tiada conflict
     let state = { user: null, currentFileId: null, currentFolderId: null, currentNoteId: null, lastSavedContent: "" };
 
-    const views = { login: document.getElementById('view-login'), home: document.getElementById('view-home'), folders: document.getElementById('view-folders'), note: document.getElementById('view-note') };
+    const views = { 
+      login: document.getElementById('view-login'), 
+      home: document.getElementById('view-home'), 
+      folders: document.getElementById('view-folders'), 
+      note: document.getElementById('view-note'),
+      audioPage: document.getElementById('view-audio-page'),
+      dustbin: document.getElementById('view-dustbin') // Tambah Dustbin
+    };
+    
     const editor = document.getElementById('editor'), historyList = document.getElementById('history-list'), saveStatus = document.getElementById('save-status');
 
-    views.audioPage = document.getElementById('view-audio-page');
-
     function showPage(viewName) {
-        Object.keys(views).forEach(key => views[key].classList.add('hidden'));
+        Object.keys(views).forEach(key => { if(views[key]) views[key].classList.add('hidden'); });
         if(views[viewName]) views[viewName].classList.remove('hidden');
         
         const btnLogout = document.getElementById('btnLogout');
+        const btnDustbin = document.getElementById('btnDustbin');
         if(btnLogout) btnLogout.classList.toggle('hidden', viewName === 'login');
+        if(btnDustbin) btnDustbin.classList.toggle('hidden', viewName === 'login');
     }
 
     auth.onAuthStateChanged(user => {
@@ -309,12 +331,13 @@
                     if(state.currentFileId && views.folders && views.folders.classList.contains('hidden')) { loadFiles(); } else { loadFolders(); }
                 }
             };
-            div.querySelector('.del-btn').onclick = () => onDelete(item.id);
+            // Luluskan keseluruhan 'item' data untuk memudahkan Sistem Tong Sampah
+            div.querySelector('.del-btn').onclick = () => onDelete(item.id, item.title || 'Tiada Nama', item);
             targetEl.appendChild(div);
         });
     }
 
-    // --- LOGIC FUNCTIONS ---
+    // --- LOGIC FUNCTIONS (TELAH DIKEMASKINI DENGAN TONG SAMPAH) ---
     async function loadFiles() {
         const snap = await filesRef().get(); 
         renderCleanItems(snap, document.getElementById('listFiles'), openFile, (id, t) => filesRef().doc(id).update({title: t}), deleteFile);
@@ -327,14 +350,32 @@
         showPage('folders'); loadFolders();
     }
 
-    async function deleteFile(id) { if(confirm("Padam fail?")) { await filesRef().doc(id).delete(); loadFiles(); } }
+    async function deleteFile(id, title, itemData) { 
+        if(confirm(`Padam fail "${title}"? Ia akan dipindahkan ke Tong Sampah.`)) { 
+            let dataToSave = { ...itemData }; delete dataToSave.id;
+            await db.collection('users').doc(state.user.uid).collection('dustbin').add({
+                originalPath: filesRef().doc(id).path, type: 'Fail', title: title, data: dataToSave, status: 'bin1', deletedAt: Date.now()
+            });
+            await filesRef().doc(id).delete(); 
+            loadFiles(); 
+        } 
+    }
 
     async function loadFolders() {
         const snap = await foldersRef(state.currentFileId).get();
         renderCleanItems(snap, document.getElementById('listFolders'), openFolder, (id, t) => foldersRef(state.currentFileId).doc(id).update({title: t}), deleteFolder);
     }
 
-    async function deleteFolder(id) { if(confirm("Padam folder?")) { await foldersRef(state.currentFileId).doc(id).delete(); loadFolders(); } }
+    async function deleteFolder(id, title, itemData) { 
+        if(confirm(`Padam folder "${title}"? Ia akan dipindahkan ke Tong Sampah.`)) { 
+            let dataToSave = { ...itemData }; delete dataToSave.id;
+            await db.collection('users').doc(state.user.uid).collection('dustbin').add({
+                originalPath: foldersRef(state.currentFileId).doc(id).path, type: 'Folder', title: title, data: dataToSave, status: 'bin1', deletedAt: Date.now()
+            });
+            await foldersRef(state.currentFileId).doc(id).delete(); 
+            loadFolders(); 
+        } 
+    }
 
     // --- LOGIK HISTORY KEKAL & BUKA NOTA ---
     async function openFolder(id, title) {
@@ -650,8 +691,13 @@
                 }
             };
             
+            // LOGIK DELETE AUDIO KE TONG SAMPAH
             header.querySelector('.del-btn').onclick = async () => {
-                if(confirm(`Padam audio "${item.title}" secara kekal?`)) {
+                if(confirm(`Padam audio "${item.title}"? Ia akan dipindahkan ke Tong Sampah.`)) {
+                    let dataToSave = { ...item }; delete dataToSave.id;
+                    await db.collection('users').doc(state.user.uid).collection('dustbin').add({
+                        originalPath: audiosRef().doc(item.id).path, type: 'Audio', title: item.title, data: dataToSave, status: 'bin1', deletedAt: Date.now()
+                    });
                     await audiosRef().doc(item.id).delete();
                     loadAudios();
                 }
@@ -714,7 +760,9 @@
         event.target.value = ""; 
     };
 
-    // --- DIPERBETULKAN: MANUAL SEJARAH DENGAN state.currentNoteId ---
+    // =========================================================================
+    // --- DIPERBAIKAI: MANUAL SEJARAH DENGAN DIRECT FIELD UPDATE (TANPA STUCK) ---
+    // =========================================================================
     document.getElementById('btnManualSave').onclick = async () => {
         const content = editor.innerHTML;
         if(!content || !state.currentNoteId) return alert("Nota kosong.");
@@ -725,12 +773,12 @@
 
         try {
             const noteDoc = notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId);
-            const oldHistory = await noteDoc.collection('history_manual').get();
-            const batch = db.batch();
-            oldHistory.forEach(doc => batch.delete(doc.ref));
-            await batch.commit();
-
-            await noteDoc.collection('history_manual').add({ content, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+            
+            // Kita permudahkan tanpa perlu delete subcollection (ini yang menyebabkan selalu stuck/hang)
+            await noteDoc.set({
+                manualHistory: content,
+                manualHistoryTime: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
             
             bar.style.width = '100%';
             setTimeout(() => {
@@ -739,7 +787,11 @@
                 s.textContent = 'Sejarah Diperbaharui!';
                 setTimeout(() => s.textContent = '', 2000);
             }, 800);
-        } catch (e) { loader.classList.add('hidden'); alert('Gagal simpan.'); }
+        } catch (e) { 
+            loader.classList.add('hidden'); 
+            alert('Gagal simpan. Sila semak capaian internet.'); 
+            console.error(e);
+        }
     };
 
     async function toggleHistory(show) {
@@ -747,29 +799,137 @@
         if (!show) return modal.classList.add('hidden');
         modal.classList.remove('hidden');
         const list = document.getElementById('historyList');
-        list.innerHTML = '<p class="text-xs animate-pulse">Menarik data...</p>';
+        list.innerHTML = '<p class="text-xs animate-pulse text-indigo-400">Menarik data...</p>';
 
-        // DIPERBETULKAN: Cari guna state.currentNoteId
-        const snap = await notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId).collection('history_manual').orderBy('timestamp', 'desc').limit(1).get();
+        try {
+            const docSnap = await notesRef(state.currentFileId, state.currentFolderId).doc(state.currentNoteId).get();
+            const d = docSnap.data();
+
+            list.innerHTML = '';
+            if(!d || !d.manualHistory) {
+                return list.innerHTML = '<p class="text-xs opacity-50 p-10 text-white">Tiada sejarah manual disimpan.</p>';
+            }
+
+            let timeStr = 'Baru';
+            if (d.manualHistoryTime) {
+                timeStr = d.manualHistoryTime.toDate ? d.manualHistoryTime.toDate().toLocaleString() : new Date().toLocaleString();
+            }
+
+            const btn = document.createElement('button');
+            btn.className = `w-full p-4 rounded-xl border border-indigo-900 bg-indigo-900/10 text-left text-white`;
+            btn.innerHTML = `<span class="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Snapshot Terakhir</span><br><span class="text-xs">${timeStr}</span>`;
+            btn.onclick = () => { 
+                if(confirm(`Pulihkan versi ini?`)) { 
+                    editor.innerHTML = d.manualHistory; 
+                    modal.classList.add('hidden'); 
+                    editor.dispatchEvent(new Event('input')); 
+                }
+            };
+            list.appendChild(btn);
+        } catch (e) {
+            list.innerHTML = '<p class="text-xs text-red-400 p-10">Gagal menarik data. Semak internet.</p>';
+        }
+    }
+
+    // =========================================================================
+    // --- LOGIK TONG SAMPAH BERTINGKAT (DUSTBIN SYSTEM) ---
+    // =========================================================================
+    let currentBinTab = 'bin1';
+    
+    const btnDustbinTop = document.getElementById('btnDustbin');
+    if(btnDustbinTop) {
+        btnDustbinTop.onclick = () => {
+            showPage('dustbin');
+            currentBinTab = 'bin1';
+            renderDustbin();
+        };
+    }
+
+    document.getElementById('tabBin1').onclick = () => { currentBinTab = 'bin1'; renderDustbin(); };
+    document.getElementById('tabBin3').onclick = () => { currentBinTab = 'bin3'; renderDustbin(); };
+
+    async function renderDustbin() {
+        document.getElementById('tabBin1').className = currentBinTab === 'bin1' ? "flex-1 py-2 bg-indigo-600 text-white rounded text-sm font-bold shadow" : "flex-1 py-2 bg-slate-700 text-slate-300 rounded text-sm font-bold";
+        document.getElementById('tabBin3').className = currentBinTab === 'bin3' ? "flex-1 py-2 bg-red-800 text-white rounded text-sm font-bold shadow" : "flex-1 py-2 bg-slate-700 text-slate-300 rounded text-sm font-bold";
+
+        const list = document.getElementById('listDustbin');
+        list.innerHTML = '<p class="text-center text-xs text-slate-500 mt-10">Memuatkan tong sampah...</p>';
+
+        const dustbinRef = db.collection('users').doc(state.user.uid).collection('dustbin');
+        const snap = await dustbinRef.get();
 
         list.innerHTML = '';
-        if(snap.empty) return list.innerHTML = '<p class="text-xs opacity-50 p-10">Tiada sejarah manual disimpan.</p>';
+        let hasItems = false;
+        const now = Date.now();
+        const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
 
         snap.forEach(doc => {
-            const d = doc.data();
-            const btn = document.createElement('button');
-            btn.className = `w-full p-4 rounded-xl border border-indigo-900 bg-indigo-900/10 text-left`;
-            btn.innerHTML = `<span class="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Snapshot Terakhir</span><br><span class="text-xs">${d.timestamp?.toDate().toLocaleString() || 'Baru'}</span>`;
-            btn.onclick = () => { if(confirm(`Pulihkan versi ini?`)) { editor.innerHTML = d.content; modal.classList.add('hidden'); editor.dispatchEvent(new Event('input')); }};
-            list.appendChild(btn);
+            let d = doc.data();
+            
+            // Auto padan dari Firebase jika sudah melebihi 30 hari (Level 3)
+            if (d.status === 'bin3' && now - d.bin3At > THIRTY_DAYS) {
+                dustbinRef.doc(doc.id).delete();
+                return;
+            }
+
+            if (d.status !== currentBinTab) return;
+            hasItems = true;
+
+            const div = document.createElement('div');
+            div.className = "bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center gap-2 shadow";
+
+            let buttonsHTML = '';
+            if (currentBinTab === 'bin1') {
+                buttonsHTML = `
+                  <button class="px-3 py-2 bg-green-700 hover:bg-green-600 rounded text-xs font-bold btn-restore">🔄 Pulih</button>
+                  <button class="px-3 py-2 bg-red-900 hover:bg-red-800 rounded text-xs font-bold btn-perm">🗑️ Buang Kekal</button>
+                `;
+            } else {
+                const daysLeft = Math.ceil((THIRTY_DAYS - (now - d.bin3At)) / (1000*60*60*24));
+                buttonsHTML = `
+                  <span class="text-[10px] text-red-400 font-bold mr-2">${daysLeft} HARI LAGI</span>
+                  <button class="px-3 py-2 bg-indigo-700 hover:bg-indigo-600 rounded text-xs font-bold btn-recover-bin1">↩️ Ke Level 1</button>
+                `;
+            }
+
+            div.innerHTML = `
+              <div class="flex-1 overflow-hidden">
+                 <p class="font-bold text-sm truncate text-slate-300">${d.title} <span class="text-[9px] bg-slate-600 px-2 py-0.5 rounded text-white ml-2">${d.type}</span></p>
+                 <p class="text-[9px] text-slate-500 mt-1 truncate">Dipadam: ${new Date(d.deletedAt).toLocaleString()}</p>
+              </div>
+              <div class="flex gap-2 items-center">${buttonsHTML}</div>
+            `;
+
+            if (currentBinTab === 'bin1') {
+                div.querySelector('.btn-restore').onclick = async () => {
+                    await db.doc(d.originalPath).set(d.data); // Set balik data di lokasi asal
+                    await dustbinRef.doc(doc.id).delete(); // Buang dari tong sampah
+                    renderDustbin();
+                };
+                div.querySelector('.btn-perm').onclick = async () => {
+                    if(confirm('Elemen ini akan dipindahkan ke Arkib (Level 3). Anda pasti?')) {
+                        await dustbinRef.doc(doc.id).update({ status: 'bin3', bin3At: Date.now() });
+                        renderDustbin();
+                    }
+                };
+            } else {
+                div.querySelector('.btn-recover-bin1').onclick = async () => {
+                    await dustbinRef.doc(doc.id).update({ status: 'bin1' });
+                    renderDustbin();
+                };
+            }
+
+            list.appendChild(div);
         });
+
+        if (!hasItems) list.innerHTML = `<p class="text-center text-xs text-slate-500 mt-10">Tong Sampah Level ${currentBinTab === 'bin1' ? '1' : '3'} kosong.</p>`;
     }
+
 
     // --- OTHER UI BINDINGS ---
     const btnHistory = document.getElementById('btnHistory');
     if(btnHistory) btnHistory.onclick = () => toggleHistory(true);
     
-    // DIPERBETULKAN: showPage('folders')
     const btnBackToFolders = document.getElementById('btnBackToFolders');
     if(btnBackToFolders) btnBackToFolders.onclick = () => showPage('folders');
 
